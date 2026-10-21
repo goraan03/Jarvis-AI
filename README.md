@@ -10,12 +10,14 @@ the full design. This README only covers running it locally.
 
 ## Status
 
-Phase 2 (private user and chat) is complete: owner-only cookie auth,
-conversation/message persistence, and a chat UI — currently wired to a
-deterministic `MockProvider` only (no Anthropic API calls are made; see
-"AI provider" below). No tool execution, memory, integrations, or
-scheduling exist yet — see `docs/implementation-roadmap.md` for what each
-later phase adds.
+Phase 3 (agent engine and tools) is complete: a real multi-step task
+execution loop running on a BullMQ worker, a tool registry
+(`get_current_time` always available; `search_web` only if
+`BRAVE_SEARCH_API_KEY` is set), and a Tasks page to run/watch/cancel
+tasks. Model calls still go through `MockProvider` only (see "AI
+provider" below). No memory, integrations, approvals, or scheduling
+exist yet — see `docs/implementation-roadmap.md` for what each later
+phase adds.
 
 ## Prerequisites
 
@@ -66,8 +68,12 @@ manager):
 ```bash
 npm run dev:api      # Express API on http://localhost:4100
 npm run dev:web      # Vite dev server on http://localhost:5180 (proxies /api to the API)
-npm run dev:worker   # background worker (currently idle — connects to Redis and waits; queues land in Phase 3)
+npm run dev:worker   # BullMQ worker — runs agent tasks from the agent-tasks queue
 ```
+
+`npm run dev:worker` must be running for tasks created on the Tasks page
+(or via `POST /api/v1/tasks`) to actually execute — the API only
+enqueues them.
 
 Verify the API is actually talking to real Postgres and Redis:
 
@@ -95,16 +101,26 @@ yet; the app will fail fast with a clear error rather than silently
 running mock responses under a real-provider label. Say when you want
 real Claude API calls and the Anthropic provider gets added then.
 
+## Tools
+
+The agent can only use tools that are both implemented and configured.
+`get_current_time` needs nothing and is always available. `search_web`
+calls the real Brave Search API and is only registered at all when
+`BRAVE_SEARCH_API_KEY` is set in `.env` — without it, the agent simply
+never sees a `search_web` tool (no fake/placeholder tool is offered).
+
 ## Testing
 
 ```bash
 npm test
 ```
 
-Runs the full Vitest suite (env-schema validation, secret redaction,
-session-token helpers, MockProvider, and API integration tests for auth/
-conversations/settings — including cross-user isolation) against the
-`jarvis_test` database, never the dev database.
+Runs the full Vitest suite — env-schema validation, secret redaction,
+session-token helpers, MockProvider, the tool registry, the full agent
+execution loop (multi-step tool chains, limits, cancellation, retries),
+and API integration tests for auth/conversations/settings/tasks
+(including cross-user isolation) — against the `jarvis_test` database,
+never the dev database.
 
 ## Project layout
 
@@ -112,12 +128,12 @@ conversations/settings — including cross-user isolation) against the
 apps/
   web/      React + Vite + TypeScript + Tailwind frontend
   api/      Express REST API — the only process holding secrets/DB access the frontend can reach
-  worker/   Background job processor (BullMQ consumers land in Phase 3)
+  worker/   BullMQ worker — runs the agent task execution loop
 packages/
   shared/     Env validation, shared types (grows with each phase)
   database/   Prisma schema + client
   security/   Secret redaction, password/session-token hashing
-  ai-engine/  ModelProvider interface + MockProvider (Anthropic provider added later)
+  ai-engine/  ModelProvider + MockProvider, tool registry, agent execution loop, BullMQ queue
 docs/        Architecture, data model, API contracts, security model, roadmap, risk register
 ```
 
