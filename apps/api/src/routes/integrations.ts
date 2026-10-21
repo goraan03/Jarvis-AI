@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { prisma } from "@jarvis/database";
-import { createLinkCode } from "@jarvis/integrations";
+import { createLinkCode, disconnectGoogle } from "@jarvis/integrations";
 
 export function createIntegrationsRouter(telegramBotUsername?: string) {
   const router = Router();
@@ -40,6 +40,15 @@ export function createIntegrationsRouter(telegramBotUsername?: string) {
       data: { status: "disconnected", externalId: null },
     });
     res.json({ provider: updated.provider, status: updated.status });
+  });
+
+  router.delete("/google", async (req, res) => {
+    const disconnected = await disconnectGoogle(req.user!.id);
+    if (!disconnected) {
+      res.status(404).json({ error: { code: "NOT_FOUND", message: "Google is not connected." } });
+      return;
+    }
+    res.json({ provider: "google", status: "disconnected" });
   });
 
   return router;

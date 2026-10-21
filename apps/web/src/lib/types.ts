@@ -75,7 +75,7 @@ export interface Integration {
   provider: string;
   status: "connected" | "disconnected";
   externalId: string | null;
-  metadata: { username?: string; firstName?: string } | null;
+  metadata: { username?: string; firstName?: string; email?: string } | null;
   updatedAt: string;
 }
 
@@ -83,4 +83,18 @@ export interface LinkCodeResponse {
   code: string;
   expiresAt: string;
   deepLink: string | null;
+}
+
+export type ApprovalStatus = "PENDING" | "APPROVED" | "REJECTED" | "EXPIRED" | "CANCELLED";
+
+export interface ApprovalRequest {
+  id: string;
+  taskId: string;
+  toolName: string;
+  boundInput: Record<string, unknown>;
+  status: ApprovalStatus;
+  requestedVia: "WEB" | "TELEGRAM";
+  decidedAt: string | null;
+  expiresAt: string;
+  createdAt: string;
 }

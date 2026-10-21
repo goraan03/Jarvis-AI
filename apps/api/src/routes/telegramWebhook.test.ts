@@ -8,6 +8,7 @@ function fakeTelegramClient(): TelegramClient {
     getMe: vi.fn(async () => ({ id: 1, is_bot: true, first_name: "Jarvis" })),
     getUpdates: vi.fn(async () => []),
     sendMessage: vi.fn(async () => {}),
+    answerCallbackQuery: vi.fn(async () => {}),
   };
 }
 

@@ -3,6 +3,7 @@ import { z } from "zod";
 import { prisma } from "@jarvis/database";
 import {
   createAndEnqueueTask,
+  cancelPendingApprovalsForTask,
   ConcurrentTaskLimitError,
   SettingsNotFoundError,
   type AgentTaskJobData,
@@ -79,6 +80,7 @@ export function createTasksRouter(taskQueue: Pick<Queue<AgentTaskJobData>, "add"
       where: { id: task.id },
       data: { status: "CANCELLED", completedAt: new Date() },
     });
+    await cancelPendingApprovalsForTask(task.id);
     res.json(cancelled);
   });
 

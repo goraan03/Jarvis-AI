@@ -1,7 +1,15 @@
 import type { Queue } from "bullmq";
 import { prisma, Prisma } from "@jarvis/database";
-import { createAndEnqueueTask, ConcurrentTaskLimitError, type AgentTaskJobData } from "@jarvis/ai-engine";
-import type { TelegramClient, TelegramUpdate } from "./types.js";
+import {
+  createAndEnqueueTask,
+  decideApproval,
+  cancelPendingApprovalsForTask,
+  ConcurrentTaskLimitError,
+  ApprovalNotFoundError,
+  ApprovalAlreadyDecidedError,
+  type AgentTaskJobData,
+} from "@jarvis/ai-engine";
+import type { TelegramCallbackQuery, TelegramClient, TelegramUpdate } from "./types.js";
 import { consumeLinkCode, findUserByTelegramChatId } from "./linking.js";
 
 export interface TelegramHandlerDeps {
@@ -43,6 +51,7 @@ async function handleCancelCommand(deps: TelegramHandlerDeps, chatId: number, us
     return;
   }
   await prisma.task.update({ where: { id: task.id }, data: { status: "CANCELLED", completedAt: new Date() } });
+  await cancelPendingApprovalsForTask(task.id);
   await deps.client.sendMessage({ chatId, text: `Cancelled task ${shortId(task.id)}.` });
 }
 
@@ -54,6 +63,42 @@ async function handleNewTaskGoal(deps: TelegramHandlerDeps, chatId: number, user
   } catch (error) {
     if (error instanceof ConcurrentTaskLimitError) {
       await deps.client.sendMessage({ chatId, text: `⚠️ ${error.message}` });
+      return;
+    }
+    throw error;
+  }
+}
+
+async function handleCallbackQuery(deps: TelegramHandlerDeps, callbackQuery: TelegramCallbackQuery): Promise<void> {
+  const data = callbackQuery.data ?? "";
+  const match = /^approval:([^:]+):(approve|reject)$/.exec(data);
+  if (!match) {
+    await deps.client.answerCallbackQuery({ callbackQueryId: callbackQuery.id });
+    return;
+  }
+  const [, approvalId, action] = match;
+
+  const userId = await findUserByTelegramChatId(callbackQuery.from.id);
+  if (!userId) {
+    await deps.client.answerCallbackQuery({ callbackQueryId: callbackQuery.id, text: "Not linked." });
+    return;
+  }
+
+  try {
+    await decideApproval(approvalId, action === "approve" ? "APPROVED" : "REJECTED", userId, deps.taskQueue);
+    await deps.client.answerCallbackQuery({
+      callbackQueryId: callbackQuery.id,
+      text: action === "approve" ? "Approved." : "Rejected.",
+    });
+    if (callbackQuery.message) {
+      await deps.client.sendMessage({
+        chatId: callbackQuery.message.chat.id,
+        text: action === "approve" ? "✅ Approved — resuming the task." : "❌ Rejected.",
+      });
+    }
+  } catch (error) {
+    if (error instanceof ApprovalNotFoundError || error instanceof ApprovalAlreadyDecidedError) {
+      await deps.client.answerCallbackQuery({ callbackQueryId: callbackQuery.id, text: error.message, showAlert: true });
       return;
     }
     throw error;
@@ -74,6 +119,11 @@ export async function processUpdate(update: TelegramUpdate, deps: TelegramHandle
       return; // already processed this update_id — no-op, by design
     }
     throw error;
+  }
+
+  if (update.callback_query) {
+    await handleCallbackQuery(deps, update.callback_query);
+    return;
   }
 
   const message = update.message;

@@ -21,14 +21,18 @@ async function makeUser() {
 
 function fakeClient() {
   const sent: Array<{ chatId: number | string; text: string }> = [];
+  const answeredCallbacks: Array<{ callbackQueryId: string; text?: string }> = [];
   const client: TelegramClient = {
     getMe: vi.fn(async () => ({ id: 1, is_bot: true, first_name: "Jarvis" })),
     getUpdates: vi.fn(async () => []),
     sendMessage: vi.fn(async (params) => {
       sent.push(params);
     }),
+    answerCallbackQuery: vi.fn(async (params) => {
+      answeredCallbacks.push(params);
+    }),
   };
-  return { client, sent };
+  return { client, sent, answeredCallbacks };
 }
 
 function fakeQueue() {

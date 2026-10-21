@@ -7,6 +7,8 @@
   "types": "./src/index.ts",
   "dependencies": {
     "@jarvis/ai-engine": "^0.1.0",
-    "@jarvis/database": "^0.1.0"
+    "@jarvis/database": "^0.1.0",
+    "@jarvis/security": "^0.1.0",
+    "googleapis": "^187.0.0"
   }
 }

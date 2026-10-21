@@ -39,8 +39,16 @@ export function createTelegramClient(botToken: string): TelegramClient {
       return call<TelegramUpdate[]>("getUpdates", { offset, timeout: timeoutSeconds });
     },
 
-    async sendMessage({ chatId, text }): Promise<void> {
-      await call<TelegramMessage>("sendMessage", { chat_id: chatId, text });
+    async sendMessage({ chatId, text, inlineKeyboard }): Promise<void> {
+      await call<TelegramMessage>("sendMessage", {
+        chat_id: chatId,
+        text,
+        reply_markup: inlineKeyboard ? { inline_keyboard: inlineKeyboard } : undefined,
+      });
+    },
+
+    async answerCallbackQuery({ callbackQueryId, text, showAlert }): Promise<void> {
+      await call<true>("answerCallbackQuery", { callback_query_id: callbackQueryId, text, show_alert: showAlert });
     },
   };
 }

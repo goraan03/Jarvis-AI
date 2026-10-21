@@ -10,14 +10,14 @@ the full design. This README only covers running it locally.
 
 ## Status
 
-Phase 4 (Telegram) is complete: link a Telegram account from the
-Integrations page, then create/list/cancel tasks and get progress +
-result messages straight from the bot — only the linked chat can do
-this, and duplicate update deliveries are guaranteed no-ops. Local dev
-uses long-polling (no public HTTPS endpoint needed); the webhook route
-exists and is secured but inactive until deployed. Model calls still go
-through `MockProvider` only (see "AI provider" below). No memory, OAuth
-integrations, approvals, or scheduling exist yet — see
+Phase 5 (approvals + Gmail/Calendar) is complete: the agent can search/
+read Gmail, create drafts, and read your Calendar immediately once
+connected — but **sending** an email always pauses the task and waits
+for your explicit approval (web UI or Telegram buttons) before it
+touches the real Gmail API. Approval is bound to the exact parameters;
+if they ever drifted after approval, execution would still be blocked.
+Model calls still go through `MockProvider` only (see "AI provider"
+below). No memory or scheduling exist yet — see
 `docs/implementation-roadmap.md` for what each later phase adds.
 
 ## Prerequisites
@@ -133,6 +133,43 @@ other chat (or from a group) get a rejection reply and never touch your
 data. `TELEGRAM_WEBHOOK_SECRET` is only needed for a future deployment
 with a public webhook — local dev uses long-polling instead.
 
+## Google (Gmail + Calendar)
+
+Optional. To enable:
+
+1. In [Google Cloud Console](https://console.cloud.google.com/), create
+   a project, enable the **Gmail API** and **Google Calendar API**, and
+   configure the OAuth consent screen in **Testing** mode with your own
+   Google account added as a test user (this avoids Google's app
+   verification process, which only applies once you go beyond Testing
+   mode / 100 test users — not relevant for a single owner).
+2. Create an OAuth 2.0 Client ID (Web application) with redirect URI
+   `http://localhost:4100/api/v1/integrations/google/callback` (already
+   the default in `.env.example`). Put the client ID/secret in `.env` as
+   `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET`.
+3. Make sure `ENCRYPTION_MASTER_KEY` is set (generated during first-time
+   setup above) — the refresh token is encrypted with it before storage,
+   never kept in plaintext.
+4. Restart `npm run dev:worker` and `npm run dev:api`, then go to
+   **Integrations** → **Connect Google** in the web app and complete the
+   consent screen.
+
+Once connected: `search_emails`, `read_email`, `create_email_draft`, and
+`get_calendar_events` work immediately. `send_email` always creates a
+pending approval first — check the **Approvals** page (or your linked
+Telegram chat, if connected) to approve or reject it before anything is
+actually sent.
+
+## Approvals
+
+Any tool classified as requiring approval (currently just `send_email`)
+pauses its task instead of running — the task's status becomes
+`AWAITING_APPROVAL` and an entry shows up on the **Approvals** page with
+the exact parameters it wants to use. Approving or rejecting resumes the
+task from exactly where it paused; the approval is bound to those exact
+parameters via a hash checked again at execution time, not just trusted
+because the status says `APPROVED`.
+
 ## Testing
 
 ```bash
@@ -140,13 +177,15 @@ npm test
 ```
 
 Runs the full Vitest suite — env-schema validation, secret redaction,
-session-token helpers, MockProvider, the tool registry, the full agent
-execution loop (multi-step tool chains, limits, cancellation, retries),
-Telegram linking/authorization/idempotency/commands (against a fake
-Telegram client, never the real API), and API integration tests for
-auth/conversations/settings/tasks/integrations/webhooks (including
-cross-user isolation) — against the `jarvis_test` database, never the
-dev database.
+credential encryption, session-token helpers, MockProvider, the tool
+registry, the full agent execution loop (multi-step tool chains, limits,
+cancellation, retries), approval pause/resume/reject/expiry/tamper-
+detection, Gmail MIME encoding + Gmail/Calendar tool gating, Telegram
+linking/authorization/idempotency/commands/approval-buttons (against
+fake Telegram/Google clients, never the real APIs), and API integration
+tests for auth/conversations/settings/tasks/integrations/approvals/
+webhooks (including cross-user isolation) — against the `jarvis_test`
+database, never the dev database.
 
 ## Project layout
 
@@ -158,9 +197,9 @@ apps/
 packages/
   shared/        Env validation, shared types (grows with each phase)
   database/      Prisma schema + client
-  security/      Secret redaction, password/session-token hashing
-  ai-engine/     ModelProvider + MockProvider, tool registry, agent execution loop, BullMQ queue
-  integrations/  Telegram client, linking, update handler, polling loop, task-result notifier
+  security/      Secret redaction, credential encryption, password/session/approval hashing
+  ai-engine/     ModelProvider + MockProvider, tool registry, agent execution loop (incl. approval pause/resume), BullMQ queue
+  integrations/  Telegram (client, linking, polling, approval buttons), Google (OAuth, Gmail, Calendar tools)
 docs/        Architecture, data model, API contracts, security model, roadmap, risk register
 ```
 

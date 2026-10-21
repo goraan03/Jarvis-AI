@@ -20,6 +20,8 @@ function buildResultText(task: { id: string; status: string; resultSummary: stri
  * Called from apps/worker after a BullMQ job finishes. Only sends a
  * message when the task actually originated from a linked Telegram
  * chat — web-originated tasks never produce a Telegram notification.
+ * If the task paused for approval, sends the approve/reject buttons
+ * instead of a plain status line.
  */
 export async function notifyTaskResult(taskId: string, client: TelegramClient): Promise<void> {
   const task = await prisma.task.findUnique({ where: { id: taskId }, include: { conversation: true } });
@@ -33,6 +35,27 @@ export async function notifyTaskResult(taskId: string, client: TelegramClient): 
   if (!integration?.externalId) {
     return;
   }
+  const chatId = Number(integration.externalId);
 
-  await client.sendMessage({ chatId: Number(integration.externalId), text: buildResultText(task) });
+  if (task.status === "AWAITING_APPROVAL") {
+    const approval = await prisma.approvalRequest.findFirst({
+      where: { taskId, status: "PENDING" },
+      orderBy: { createdAt: "desc" },
+    });
+    if (approval) {
+      await client.sendMessage({
+        chatId,
+        text: `⏸ Approval needed for "${approval.toolName}":\n${JSON.stringify(approval.boundInput, null, 2)}`,
+        inlineKeyboard: [
+          [
+            { text: "✅ Approve", callback_data: `approval:${approval.id}:approve` },
+            { text: "❌ Reject", callback_data: `approval:${approval.id}:reject` },
+          ],
+        ],
+      });
+      return;
+    }
+  }
+
+  await client.sendMessage({ chatId, text: buildResultText(task) });
 }

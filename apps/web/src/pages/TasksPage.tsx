@@ -70,6 +70,9 @@ export default function TasksPage() {
           <Link to="/integrations" className="text-sm text-slate-500 hover:underline dark:text-slate-400">
             Integrations
           </Link>
+          <Link to="/approvals" className="text-sm text-slate-500 hover:underline dark:text-slate-400">
+            Approvals
+          </Link>
         </div>
       </header>
 

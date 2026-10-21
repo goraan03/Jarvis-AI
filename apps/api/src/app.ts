@@ -4,7 +4,7 @@ import cookieParser from "cookie-parser";
 import type { Queue } from "bullmq";
 import { prisma } from "@jarvis/database";
 import { createModelProvider, createAgentTaskQueue, type ModelProvider, type AgentTaskJobData } from "@jarvis/ai-engine";
-import { createTelegramClient, type TelegramClient } from "@jarvis/integrations";
+import { createTelegramClient, type TelegramClient, type GoogleOAuthConfig } from "@jarvis/integrations";
 import { redis } from "./redis.js";
 import { bullRedisConnection } from "./queueConnection.js";
 import { logger } from "./logger.js";
@@ -17,6 +17,8 @@ import { settingsRouter } from "./routes/settings.js";
 import { createTasksRouter } from "./routes/tasks.js";
 import { createIntegrationsRouter } from "./routes/integrations.js";
 import { createTelegramWebhookRouter } from "./routes/telegramWebhook.js";
+import { createGoogleConnectRouter, createGoogleCallbackRouter, type GoogleOAuthRouterConfig } from "./routes/google.js";
+import { createApprovalsRouter } from "./routes/approvals.js";
 import { loginRateLimit, taskCreationRateLimit } from "./middleware/rateLimit.js";
 
 export interface CreateAppOptions {
@@ -25,6 +27,18 @@ export interface CreateAppOptions {
   telegramClient?: TelegramClient;
   telegramBotUsername?: string;
   telegramWebhookSecret?: string;
+  googleOAuth?: GoogleOAuthConfig;
+  encryptionMasterKey?: string;
+}
+
+function resolveGoogleConfig(options: CreateAppOptions): GoogleOAuthRouterConfig {
+  const oauth =
+    options.googleOAuth ??
+    (env.GOOGLE_CLIENT_ID && env.GOOGLE_CLIENT_SECRET && env.GOOGLE_REDIRECT_URI
+      ? { clientId: env.GOOGLE_CLIENT_ID, clientSecret: env.GOOGLE_CLIENT_SECRET, redirectUri: env.GOOGLE_REDIRECT_URI }
+      : undefined);
+  const encryptionMasterKey = options.encryptionMasterKey ?? env.ENCRYPTION_MASTER_KEY;
+  return { oauth, encryptionMasterKey };
 }
 
 export function createApp(options: CreateAppOptions = {}): Express {
@@ -32,6 +46,7 @@ export function createApp(options: CreateAppOptions = {}): Express {
   const taskQueue = options.taskQueue ?? createAgentTaskQueue(bullRedisConnection);
   const telegramClient =
     options.telegramClient ?? (env.TELEGRAM_BOT_TOKEN ? createTelegramClient(env.TELEGRAM_BOT_TOKEN) : undefined);
+  const googleConfig = resolveGoogleConfig(options);
 
   const app = express();
 
@@ -74,7 +89,10 @@ export function createApp(options: CreateAppOptions = {}): Express {
   app.use("/api/v1/conversations", requireAuth, createConversationsRouter(modelProvider));
   app.use("/api/v1/settings", requireAuth, settingsRouter);
   app.use("/api/v1/tasks", requireAuth, taskCreationRateLimit, createTasksRouter(taskQueue));
+  app.use("/api/v1/integrations/google/connect", requireAuth, createGoogleConnectRouter(googleConfig));
+  app.use("/api/v1/integrations/google/callback", createGoogleCallbackRouter(googleConfig));
   app.use("/api/v1/integrations", requireAuth, createIntegrationsRouter(options.telegramBotUsername));
+  app.use("/api/v1/approvals", requireAuth, createApprovalsRouter(taskQueue));
 
   // Inactive until a public URL is registered with Telegram — see
   // docs/risk-register.md #5. Local dev uses long-polling (apps/worker)

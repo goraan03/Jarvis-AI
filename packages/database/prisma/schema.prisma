@@ -23,6 +23,8 @@ model User {
   tasks             Task[]
   integrations      Integration[]
   telegramLinkCodes TelegramLinkCode[]
+  approvalRequests  ApprovalRequest[]
+  oauthStates       OAuthState[]
 }
 
 model Session {
@@ -133,14 +135,20 @@ model Task {
   resultSummary  String?
   failureReason  String?
   limits         Json
+  // In-progress message history + any tool calls from the current turn
+  // not yet executed (because one of them is awaiting approval) — lets
+  // the engine pause and resume exactly where it left off instead of
+  // needing to replay/reconstruct state from TaskStep rows.
+  conversationState Json?
   startedAt      DateTime?
   completedAt    DateTime?
   createdAt      DateTime      @default(now())
   updatedAt      DateTime      @updatedAt
 
-  steps          TaskStep[]
-  toolExecutions ToolExecution[]
-  usageRecords   UsageRecord[]
+  steps            TaskStep[]
+  toolExecutions   ToolExecution[]
+  usageRecords     UsageRecord[]
+  approvalRequests ApprovalRequest[]
 
   @@index([userId, status])
 }
@@ -205,7 +213,35 @@ model Integration {
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
 
+  credential EncryptedCredential?
+
   @@unique([userId, provider])
+}
+
+/** OAuth tokens, encrypted at rest (AES-256-GCM, packages/security) —
+ * docs/security-model.md §4. Only a refresh_token is ever stored; access
+ * tokens are short-lived and re-fetched on demand, never persisted. */
+model EncryptedCredential {
+  id            String      @id @default(cuid())
+  integrationId String      @unique
+  integration   Integration @relation(fields: [integrationId], references: [id], onDelete: Cascade)
+  ciphertext    Bytes
+  iv            Bytes
+  authTag       Bytes
+  keyVersion    Int         @default(1)
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+}
+
+/** Short-lived, single-use CSRF state for an OAuth authorization-code
+ * flow — validated and deleted on the callback, docs/security-model.md §9. */
+model OAuthState {
+  state     String   @id
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  provider  String
+  expiresAt DateTime
+  createdAt DateTime @default(now())
 }
 
 /** One-time code the owner sends to the bot to prove they control a given
@@ -224,4 +260,36 @@ model TelegramLinkCode {
 model TelegramUpdate {
   updateId  BigInt   @id
   createdAt DateTime @default(now())
+}
+
+// --- Phase 5: approvals + Google integrations -------------------------------
+
+enum ApprovalStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  EXPIRED
+  CANCELLED
+}
+
+/** Authorizes exactly one tool call with exactly these parameters — never
+ * "the model said it's fine." boundInput/inputHash are re-checked at
+ * execution time, not just at decision time — docs/security-model.md §5. */
+model ApprovalRequest {
+  id           String         @id @default(cuid())
+  userId       String
+  user         User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  taskId       String
+  task         Task           @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  toolName     String
+  boundInput   Json
+  inputHash    String
+  status       ApprovalStatus @default(PENDING)
+  requestedVia Channel
+  decidedAt    DateTime?
+  expiresAt    DateTime
+  createdAt    DateTime       @default(now())
+
+  @@index([userId, status])
+  @@index([taskId])
 }

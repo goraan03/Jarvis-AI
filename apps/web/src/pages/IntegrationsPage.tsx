@@ -13,6 +13,8 @@ export default function IntegrationsPage() {
 
   const telegram = integrationsQuery.data?.find((i) => i.provider === "telegram");
   const isConnected = telegram?.status === "connected";
+  const google = integrationsQuery.data?.find((i) => i.provider === "google");
+  const isGoogleConnected = google?.status === "connected";
 
   const generateCode = useMutation({
     mutationFn: () => api.post<LinkCodeResponse>("/integrations/telegram/link-code"),
@@ -20,6 +22,11 @@ export default function IntegrationsPage() {
 
   const disconnect = useMutation({
     mutationFn: () => api.delete("/integrations/telegram"),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["integrations"] }),
+  });
+
+  const disconnectGoogle = useMutation({
+    mutationFn: () => api.delete("/integrations/google"),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["integrations"] }),
   });
 
@@ -35,10 +42,49 @@ export default function IntegrationsPage() {
             Tasks
           </Link>
           <span className="text-sm font-medium">Integrations</span>
+          <Link to="/approvals" className="text-sm text-slate-500 hover:underline dark:text-slate-400">
+            Approvals
+          </Link>
         </div>
       </header>
 
-      <main className="mx-auto max-w-xl px-6 py-6">
+      <main className="mx-auto max-w-xl space-y-4 px-6 py-6">
+        <div className="rounded-lg border border-slate-200 p-4 dark:border-slate-800">
+          <div className="flex items-center justify-between">
+            <div>
+              <h2 className="font-medium">Google (Gmail + Calendar)</h2>
+              <p className="text-sm text-slate-500 dark:text-slate-400">
+                {isGoogleConnected
+                  ? `Connected${google?.externalId ? ` as ${google.externalId}` : ""}`
+                  : "Not connected"}
+              </p>
+            </div>
+            {isGoogleConnected ? (
+              <button
+                onClick={() => disconnectGoogle.mutate()}
+                disabled={disconnectGoogle.isPending}
+                className="rounded-md border border-slate-300 px-3 py-1.5 text-sm disabled:opacity-50 dark:border-slate-700"
+              >
+                {disconnectGoogle.isPending ? "Disconnecting..." : "Disconnect"}
+              </button>
+            ) : (
+              <a
+                href="/api/v1/integrations/google/connect"
+                className="rounded-md bg-slate-900 px-3 py-1.5 text-sm font-medium text-white dark:bg-slate-100 dark:text-slate-900"
+              >
+                Connect Google
+              </a>
+            )}
+          </div>
+          {!isGoogleConnected && (
+            <p className="mt-3 text-xs text-slate-500 dark:text-slate-400">
+              Requires GOOGLE_CLIENT_ID/SECRET/REDIRECT_URI and ENCRYPTION_MASTER_KEY configured on the server — see
+              README. Gmail search/read/draft and Calendar read work immediately after connecting; sending an email
+              always requires your approval first.
+            </p>
+          )}
+        </div>
+
         <div className="rounded-lg border border-slate-200 p-4 dark:border-slate-800">
           <div className="flex items-center justify-between">
             <div>

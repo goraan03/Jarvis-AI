@@ -3,7 +3,7 @@ import { Redis } from "ioredis";
 import pino from "pino";
 import { loadEnv } from "@jarvis/shared";
 import { createModelProvider, buildToolRegistry, createAgentTaskWorker, createAgentTaskQueue } from "@jarvis/ai-engine";
-import { createTelegramClient, startTelegramPolling, notifyTaskResult } from "@jarvis/integrations";
+import { createTelegramClient, startTelegramPolling, notifyTaskResult, createGoogleToolsResolver } from "@jarvis/integrations";
 
 const env = loadEnv();
 const logger = pino({ transport: env.NODE_ENV === "development" ? { target: "pino-pretty" } : undefined });
@@ -23,6 +23,15 @@ async function main() {
   const tools = buildToolRegistry({ braveSearchApiKey: env.BRAVE_SEARCH_API_KEY });
   const taskQueue = createAgentTaskQueue(connection);
 
+  const googleConfigured = env.GOOGLE_CLIENT_ID && env.GOOGLE_CLIENT_SECRET && env.GOOGLE_REDIRECT_URI && env.ENCRYPTION_MASTER_KEY;
+  const resolveDynamicTools = googleConfigured
+    ? createGoogleToolsResolver({
+        oauth: { clientId: env.GOOGLE_CLIENT_ID!, clientSecret: env.GOOGLE_CLIENT_SECRET!, redirectUri: env.GOOGLE_REDIRECT_URI! },
+        encryptionMasterKey: env.ENCRYPTION_MASTER_KEY!,
+      })
+    : undefined;
+  logger.info({ googleConfigured: !!googleConfigured }, googleConfigured ? "Gmail/Calendar tools available per-user" : "Google not configured — Gmail/Calendar tools disabled");
+
   const telegramClient = env.TELEGRAM_BOT_TOKEN ? createTelegramClient(env.TELEGRAM_BOT_TOKEN) : undefined;
   if (telegramClient) {
     try {
@@ -38,7 +47,7 @@ async function main() {
     logger.info("TELEGRAM_BOT_TOKEN not set — Telegram integration disabled");
   }
 
-  const worker = createAgentTaskWorker(connection, { modelProvider, tools });
+  const worker = createAgentTaskWorker(connection, { modelProvider, tools, resolveDynamicTools });
 
   worker.on("completed", async (job) => {
     logger.info({ taskId: job.data.taskId }, "agent task finished");

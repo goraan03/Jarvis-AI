@@ -15,6 +15,7 @@ function fakeClient() {
     getMe: vi.fn(async () => ({ id: 1, is_bot: true, first_name: "Jarvis" })),
     getUpdates: vi.fn(async () => []),
     sendMessage,
+    answerCallbackQuery: vi.fn(async () => {}),
   };
   return { client, sendMessage };
 }
