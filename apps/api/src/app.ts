@@ -1,9 +1,11 @@
 import express, { type Express } from "express";
 import helmet from "helmet";
 import cookieParser from "cookie-parser";
+import type { Queue } from "bullmq";
 import { prisma } from "@jarvis/database";
-import { createModelProvider, type ModelProvider } from "@jarvis/ai-engine";
+import { createModelProvider, createAgentTaskQueue, type ModelProvider, type AgentTaskJobData } from "@jarvis/ai-engine";
 import { redis } from "./redis.js";
+import { bullRedisConnection } from "./queueConnection.js";
 import { logger } from "./logger.js";
 import { env } from "./env.js";
 import { sessionMiddleware, requireAuth } from "./auth/session.js";
@@ -11,14 +13,17 @@ import { csrfHeaderCheck } from "./auth/csrf.js";
 import { authRouter } from "./routes/auth.js";
 import { createConversationsRouter } from "./routes/conversations.js";
 import { settingsRouter } from "./routes/settings.js";
-import { loginRateLimit } from "./middleware/rateLimit.js";
+import { createTasksRouter } from "./routes/tasks.js";
+import { loginRateLimit, taskCreationRateLimit } from "./middleware/rateLimit.js";
 
 export interface CreateAppOptions {
   modelProvider?: ModelProvider;
+  taskQueue?: Pick<Queue<AgentTaskJobData>, "add">;
 }
 
 export function createApp(options: CreateAppOptions = {}): Express {
   const modelProvider = options.modelProvider ?? createModelProvider(env.AI_PROVIDER);
+  const taskQueue = options.taskQueue ?? createAgentTaskQueue(bullRedisConnection);
 
   const app = express();
 
@@ -60,6 +65,7 @@ export function createApp(options: CreateAppOptions = {}): Express {
   app.use("/api/v1/auth", authRouter);
   app.use("/api/v1/conversations", requireAuth, createConversationsRouter(modelProvider));
   app.use("/api/v1/settings", requireAuth, settingsRouter);
+  app.use("/api/v1/tasks", requireAuth, taskCreationRateLimit, createTasksRouter(taskQueue));
 
   return app;
 }

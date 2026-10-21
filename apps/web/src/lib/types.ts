@@ -24,3 +24,49 @@ export interface Message {
 export interface ConversationDetail extends Conversation {
   messages: Message[];
 }
+
+export type TaskStatus =
+  | "PENDING"
+  | "PLANNING"
+  | "RUNNING"
+  | "AWAITING_APPROVAL"
+  | "COMPLETED"
+  | "FAILED"
+  | "CANCELLED";
+
+export interface Task {
+  id: string;
+  goal: string;
+  status: TaskStatus;
+  planSummary: string | null;
+  resultSummary: string | null;
+  failureReason: string | null;
+  startedAt: string | null;
+  completedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface TaskStep {
+  id: string;
+  stepIndex: number;
+  kind: "MODEL_TURN" | "TOOL_CALL_REQUESTED" | "APPROVAL_REQUESTED" | "RETRY" | "LIMIT_EXCEEDED";
+  detail: unknown;
+  createdAt: string;
+}
+
+export interface ToolExecution {
+  id: string;
+  toolName: string;
+  input: unknown;
+  output: unknown;
+  status: "PENDING" | "RUNNING" | "SUCCEEDED" | "FAILED" | "BLOCKED_PERMISSION" | "BLOCKED_APPROVAL";
+  errorMessage: string | null;
+  durationMs: number | null;
+  createdAt: string;
+}
+
+export interface TaskDetail extends Task {
+  steps: TaskStep[];
+  toolExecutions: ToolExecution[];
+}

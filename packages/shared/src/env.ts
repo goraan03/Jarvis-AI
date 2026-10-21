@@ -10,6 +10,7 @@ const envSchema = z.object({
   AI_PROVIDER: z.enum(["mock", "anthropic"]).default("mock"),
   ANTHROPIC_API_KEY: z.string().optional(),
   ANTHROPIC_MODEL: z.string().default("claude-sonnet-5"),
+  BRAVE_SEARCH_API_KEY: z.string().optional(),
 });
 
 export type Env = z.infer<typeof envSchema>;

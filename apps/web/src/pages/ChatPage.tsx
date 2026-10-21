@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { Link } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "../auth/AuthContext.js";
 import { api } from "../lib/api.js";
@@ -64,6 +65,12 @@ export default function ChatPage() {
             Sign out
           </button>
         </div>
+        <Link
+          to="/tasks"
+          className="mb-3 block text-sm text-slate-500 hover:underline dark:text-slate-400"
+        >
+          Tasks →
+        </Link>
         <button
           onClick={() => createConversation.mutate()}
           className="mb-3 w-full rounded-md border border-slate-300 px-3 py-1.5 text-sm dark:border-slate-700"

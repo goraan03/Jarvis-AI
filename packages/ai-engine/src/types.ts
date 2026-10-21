@@ -1,13 +1,47 @@
 export type ModelMessageRole = "user" | "assistant" | "system";
 
-export interface ModelMessage {
+export interface ToolCall {
+  id: string;
+  name: string;
+  input: unknown;
+}
+
+/** A plain text turn (user/system input, or an assistant turn with no tool calls). */
+export interface TextMessage {
   role: ModelMessageRole;
   content: string;
+}
+
+/** An assistant turn that requested one or more tool calls. */
+export interface AssistantToolCallMessage {
+  role: "assistant";
+  content: string;
+  toolCalls: ToolCall[];
+}
+
+/** The result of executing a previously requested tool call, fed back to the model. */
+export interface ToolResultMessage {
+  role: "tool";
+  toolCallId: string;
+  name: string;
+  content: string;
+  isError: boolean;
+}
+
+export type ModelMessage = TextMessage | AssistantToolCallMessage | ToolResultMessage;
+
+/** Tool metadata as presented to the model — no handler, no zod internals. */
+export interface ToolSpec {
+  name: string;
+  description: string;
+  inputJsonSchema: Record<string, unknown>;
 }
 
 export interface CompletionRequest {
   model: string;
   messages: ModelMessage[];
+  /** Omitted or empty for plain chat turns that never need tool use. */
+  tools?: ToolSpec[];
 }
 
 export interface CompletionUsage {
@@ -15,17 +49,21 @@ export interface CompletionUsage {
   outputTokens: number;
 }
 
+export type StopReason = "end_turn" | "tool_use";
+
 export interface CompletionResult {
-  content: string;
   provider: "anthropic" | "mock";
   model: string;
+  stopReason: StopReason;
+  content: string;
+  toolCalls: ToolCall[];
   usage: CompletionUsage;
 }
 
 /**
- * Implemented by every model backend. The agent engine (Phase 3) and the
- * chat route (Phase 2) depend only on this interface, never on a specific
- * provider's SDK — see docs/architecture.md §6.
+ * Implemented by every model backend. The agent engine and the chat route
+ * depend only on this interface, never on a specific provider's SDK —
+ * see docs/architecture.md §6.
  */
 export interface ModelProvider {
   readonly name: "anthropic" | "mock";

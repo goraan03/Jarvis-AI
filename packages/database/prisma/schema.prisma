@@ -20,6 +20,7 @@ model User {
   conversations Conversation[]
   settings      AgentSettings?
   usageRecords  UsageRecord[]
+  tasks         Task[]
 }
 
 model Session {
@@ -49,6 +50,7 @@ model Conversation {
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
   messages  Message[]
+  tasks     Task[]
 
   @@index([userId])
 }
@@ -76,6 +78,8 @@ model UsageRecord {
   userId                String
   user                  User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   conversationId        String?
+  taskId                String?
+  task                  Task?    @relation(fields: [taskId], references: [id])
   provider              String // 'anthropic' | 'mock'
   model                 String
   inputTokens           Int
@@ -97,7 +101,91 @@ model AgentSettings {
   maxTokensPerTask       Int      @default(200000)
   maxCostMicroUsdPerTask Int      @default(500000)
   maxConcurrentTasks     Int      @default(2)
+  maxRetriesPerToolCall  Int      @default(2)
   autoMemoryEnabled      Boolean  @default(true)
   approvalExceptions     Json?
   updatedAt              DateTime @updatedAt
+}
+
+// --- Phase 3: agent engine ------------------------------------------------
+
+enum TaskStatus {
+  PENDING
+  PLANNING
+  RUNNING
+  AWAITING_APPROVAL
+  COMPLETED
+  FAILED
+  CANCELLED
+}
+
+model Task {
+  id             String        @id @default(cuid())
+  userId         String
+  user           User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  conversationId String?
+  conversation   Conversation? @relation(fields: [conversationId], references: [id])
+  goal           String
+  status         TaskStatus    @default(PENDING)
+  planSummary    String?
+  resultSummary  String?
+  failureReason  String?
+  limits         Json
+  startedAt      DateTime?
+  completedAt    DateTime?
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+
+  steps          TaskStep[]
+  toolExecutions ToolExecution[]
+  usageRecords   UsageRecord[]
+
+  @@index([userId, status])
+}
+
+enum StepKind {
+  MODEL_TURN
+  TOOL_CALL_REQUESTED
+  APPROVAL_REQUESTED
+  RETRY
+  LIMIT_EXCEEDED
+}
+
+model TaskStep {
+  id        String   @id @default(cuid())
+  taskId    String
+  task      Task     @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  stepIndex Int
+  kind      StepKind
+  detail    Json
+  createdAt DateTime @default(now())
+
+  @@index([taskId, stepIndex])
+}
+
+enum ToolExecStatus {
+  PENDING
+  RUNNING
+  SUCCEEDED
+  FAILED
+  BLOCKED_PERMISSION
+  BLOCKED_APPROVAL
+}
+
+model ToolExecution {
+  id           String         @id @default(cuid())
+  taskId       String
+  task         Task           @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  toolName     String
+  input        Json
+  output       Json?
+  status       ToolExecStatus @default(PENDING)
+  errorMessage String?
+  durationMs   Int?
+  riskLevel    String
+  createdAt    DateTime       @default(now())
+  completedAt  DateTime?
+
+  @@index([taskId])
+  @@index([toolName])
 }
