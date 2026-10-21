@@ -4,6 +4,7 @@ build/
 .env
 .env.*
 !.env.example
+!.env.test
 *.log
 *.tsbuildinfo
 .DS_Store

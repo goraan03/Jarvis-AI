@@ -19,6 +19,7 @@ model User {
   sessions      Session[]
   conversations Conversation[]
   settings      AgentSettings?
+  usageRecords  UsageRecord[]
 }
 
 model Session {
@@ -68,6 +69,21 @@ model Message {
   createdAt      DateTime     @default(now())
 
   @@index([conversationId])
+}
+
+model UsageRecord {
+  id                    String   @id @default(cuid())
+  userId                String
+  user                  User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  conversationId        String?
+  provider              String // 'anthropic' | 'mock'
+  model                 String
+  inputTokens           Int
+  outputTokens          Int
+  estimatedCostMicroUsd Int
+  createdAt             DateTime @default(now())
+
+  @@index([userId, createdAt])
 }
 
 model AgentSettings {
