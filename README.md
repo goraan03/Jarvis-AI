@@ -10,12 +10,12 @@ the full design. This README only covers running it locally.
 
 ## Status
 
-Phase 1 (project foundation) is complete: monorepo scaffold, Postgres +
-Redis via Docker Compose, Prisma migrations, a minimal Express API with
-health checks, a minimal worker process, a minimal React/Vite/Tailwind
-shell, and a baseline test suite. No agent behavior, chat, or
-integrations exist yet — see `docs/implementation-roadmap.md` for what
-each later phase adds.
+Phase 2 (private user and chat) is complete: owner-only cookie auth,
+conversation/message persistence, and a chat UI — currently wired to a
+deterministic `MockProvider` only (no Anthropic API calls are made; see
+"AI provider" below). No tool execution, memory, integrations, or
+scheduling exist yet — see `docs/implementation-roadmap.md` for what each
+later phase adds.
 
 ## Prerequisites
 
@@ -42,7 +42,20 @@ change them (and the matching value in `docker-compose.yml` /
 
 ```bash
 docker compose up -d        # starts Postgres + Redis
-npm run migrate              # applies Prisma migrations
+npm run migrate              # applies Prisma migrations to the dev database
+
+# One-time: create the owner account (reads BOOTSTRAP_OWNER_EMAIL/PASSWORD
+# from the environment if set, otherwise prompts interactively)
+npm run bootstrap:owner
+```
+
+Tests run against a separate `jarvis_test` database so `npm test` never
+touches your real conversations. Create it once and apply migrations to it:
+
+```bash
+docker compose exec postgres psql -U jarvis -d jarvis -c "CREATE DATABASE jarvis_test;"
+DATABASE_URL="postgresql://jarvis:jarvis_dev_password@localhost:5442/jarvis_test?schema=public" \
+  npm run migrate:deploy -w @jarvis/database
 ```
 
 ## Running
@@ -67,9 +80,20 @@ curl http://localhost:4100/api/v1/health/ready
 when both dependencies are reachable, and `503` with the failing check
 named otherwise — it never claims readiness it hasn't verified.
 
-Open http://localhost:5180 — the page shows a live "API status: ok/error"
-read from the real `/api/v1/health` endpoint through the Vite proxy, not
-a hardcoded value.
+Open http://localhost:5180 and sign in with the email/password you set
+during `npm run bootstrap:owner` — you'll land on the chat page, where
+messages get a real (mock) reply and persist across reloads/restarts.
+
+## AI provider
+
+`AI_PROVIDER` in `.env` controls which model backend the chat route uses.
+It defaults to `mock`, which returns a deterministic, clearly-labeled
+placeholder reply (`providerUsed: "mock"` on the message, tagged in
+`UsageRecord.provider` too) — no network call, no cost, safe to leave on
+indefinitely. `AI_PROVIDER=anthropic` is intentionally not implemented
+yet; the app will fail fast with a clear error rather than silently
+running mock responses under a real-provider label. Say when you want
+real Claude API calls and the Anthropic provider gets added then.
 
 ## Testing
 
@@ -77,14 +101,10 @@ a hardcoded value.
 npm test
 ```
 
-Runs the full Vitest suite (currently: env-schema validation, secret
-redaction, and API health-endpoint tests) across every workspace.
-
-## Owner bootstrap (lands in Phase 2)
-
-`npm run bootstrap:owner` exists as a script entry but the underlying
-logic depends on auth/session code landing in Phase 2. Running it before
-then will fail — this is expected, not a bug.
+Runs the full Vitest suite (env-schema validation, secret redaction,
+session-token helpers, MockProvider, and API integration tests for auth/
+conversations/settings — including cross-user isolation) against the
+`jarvis_test` database, never the dev database.
 
 ## Project layout
 
@@ -94,9 +114,10 @@ apps/
   api/      Express REST API — the only process holding secrets/DB access the frontend can reach
   worker/   Background job processor (BullMQ consumers land in Phase 3)
 packages/
-  shared/    Env validation, shared types (grows with each phase)
-  database/  Prisma schema + client
-  security/  Secret redaction, password hashing (grows with each phase)
+  shared/     Env validation, shared types (grows with each phase)
+  database/   Prisma schema + client
+  security/   Secret redaction, password/session-token hashing
+  ai-engine/  ModelProvider interface + MockProvider (Anthropic provider added later)
 docs/        Architecture, data model, API contracts, security model, roadmap, risk register
 ```
 
