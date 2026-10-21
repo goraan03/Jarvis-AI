@@ -11,7 +11,7 @@ export function createAgentTaskQueue(connection: ConnectionOptions): Queue<Agent
   return new Queue<AgentTaskJobData>(AGENT_TASK_QUEUE_NAME, { connection });
 }
 
-export async function enqueueAgentTask(queue: Queue<AgentTaskJobData>, taskId: string): Promise<void> {
+export async function enqueueAgentTask(queue: Pick<Queue<AgentTaskJobData>, "add">, taskId: string): Promise<void> {
   await queue.add("run", { taskId }, { jobId: taskId, removeOnComplete: true, removeOnFail: false });
 }
 

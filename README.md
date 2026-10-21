@@ -10,14 +10,15 @@ the full design. This README only covers running it locally.
 
 ## Status
 
-Phase 3 (agent engine and tools) is complete: a real multi-step task
-execution loop running on a BullMQ worker, a tool registry
-(`get_current_time` always available; `search_web` only if
-`BRAVE_SEARCH_API_KEY` is set), and a Tasks page to run/watch/cancel
-tasks. Model calls still go through `MockProvider` only (see "AI
-provider" below). No memory, integrations, approvals, or scheduling
-exist yet — see `docs/implementation-roadmap.md` for what each later
-phase adds.
+Phase 4 (Telegram) is complete: link a Telegram account from the
+Integrations page, then create/list/cancel tasks and get progress +
+result messages straight from the bot — only the linked chat can do
+this, and duplicate update deliveries are guaranteed no-ops. Local dev
+uses long-polling (no public HTTPS endpoint needed); the webhook route
+exists and is secured but inactive until deployed. Model calls still go
+through `MockProvider` only (see "AI provider" below). No memory, OAuth
+integrations, approvals, or scheduling exist yet — see
+`docs/implementation-roadmap.md` for what each later phase adds.
 
 ## Prerequisites
 
@@ -109,6 +110,29 @@ calls the real Brave Search API and is only registered at all when
 `BRAVE_SEARCH_API_KEY` is set in `.env` — without it, the agent simply
 never sees a `search_web` tool (no fake/placeholder tool is offered).
 
+## Telegram
+
+Optional — everything else works without it. To enable:
+
+1. Message [@BotFather](https://t.me/BotFather) on Telegram, run `/newbot`,
+   and follow the prompts. You'll get back a token that looks like
+   `123456789:AAabcdef...`.
+2. Put it in `.env` as `TELEGRAM_BOT_TOKEN`. Restart `npm run dev:worker`
+   — it calls Telegram's `getMe` at startup to verify the token actually
+   works (not just that it's present) and logs the result.
+3. In the web app, go to **Integrations** → **Generate linking code**,
+   then either send `/start <code>` to your bot or tap the deep link
+   shown. This proves you control that Telegram chat before anything in
+   it can talk to your agent.
+4. Send the bot anything — it creates a task, replies "⏳ Working on
+   it," and follows up with the result once the worker finishes. Use
+   `/tasks` to list recent tasks and `/cancel <id>` to cancel one.
+
+Only the linked chat can create tasks or see results; messages from any
+other chat (or from a group) get a rejection reply and never touch your
+data. `TELEGRAM_WEBHOOK_SECRET` is only needed for a future deployment
+with a public webhook — local dev uses long-polling instead.
+
 ## Testing
 
 ```bash
@@ -118,9 +142,11 @@ npm test
 Runs the full Vitest suite — env-schema validation, secret redaction,
 session-token helpers, MockProvider, the tool registry, the full agent
 execution loop (multi-step tool chains, limits, cancellation, retries),
-and API integration tests for auth/conversations/settings/tasks
-(including cross-user isolation) — against the `jarvis_test` database,
-never the dev database.
+Telegram linking/authorization/idempotency/commands (against a fake
+Telegram client, never the real API), and API integration tests for
+auth/conversations/settings/tasks/integrations/webhooks (including
+cross-user isolation) — against the `jarvis_test` database, never the
+dev database.
 
 ## Project layout
 
@@ -130,10 +156,11 @@ apps/
   api/      Express REST API — the only process holding secrets/DB access the frontend can reach
   worker/   BullMQ worker — runs the agent task execution loop
 packages/
-  shared/     Env validation, shared types (grows with each phase)
-  database/   Prisma schema + client
-  security/   Secret redaction, password/session-token hashing
-  ai-engine/  ModelProvider + MockProvider, tool registry, agent execution loop, BullMQ queue
+  shared/        Env validation, shared types (grows with each phase)
+  database/      Prisma schema + client
+  security/      Secret redaction, password/session-token hashing
+  ai-engine/     ModelProvider + MockProvider, tool registry, agent execution loop, BullMQ queue
+  integrations/  Telegram client, linking, update handler, polling loop, task-result notifier
 docs/        Architecture, data model, API contracts, security model, roadmap, risk register
 ```
 

@@ -58,13 +58,26 @@ execution is blocked and a new approval is required.
 
 - `GET /api/v1/integrations` — status per provider (connected,
   disconnected, error, needs_reauth) — never returns token values.
-- `POST /api/v1/integrations/:provider/connect` — starts OAuth flow (302
-  to provider) or returns setup instructions for non-OAuth providers
-  (e.g. Telegram linking code).
-- `GET /api/v1/integrations/:provider/callback` — OAuth redirect target;
-  validates `state`, exchanges code, encrypts and stores credential.
 - `DELETE /api/v1/integrations/:provider` — disconnect + revoke where the
   provider supports remote revocation.
+
+Telegram doesn't use OAuth (there's no per-user secret to exchange — the
+bot token is a single server-side secret, not a per-connection
+credential), so it gets its own linking endpoint instead of `connect`/
+`callback` (implemented Phase 4):
+
+- `POST /api/v1/integrations/telegram/link-code` — issues a short-lived,
+  single-use code (`{ code, expiresAt, deepLink }`); `deepLink` is `null`
+  if no bot username is configured yet. The owner sends `/start <code>`
+  to the bot (or taps the deep link) to bind their chat.
+
+OAuth-based providers (Gmail, Calendar, Drive, GitHub — Phase 5+) use the
+originally documented shape:
+
+- `POST /api/v1/integrations/:provider/connect` — starts OAuth flow (302
+  to provider).
+- `GET /api/v1/integrations/:provider/callback` — OAuth redirect target;
+  validates `state`, exchanges code, encrypts and stores credential.
 
 ## Memory (Phase 6)
 
@@ -104,7 +117,11 @@ execution is blocked and a new approval is required.
 - `POST /webhooks/telegram` — Telegram update webhook (Phase 4). Verifies
   the secret token Telegram sends in
   `X-Telegram-Bot-Api-Secret-Token` before processing; deduplicates by
-  Telegram `update_id` (stored, checked, idempotent).
+  Telegram `update_id` (stored, checked, idempotent). Implemented but
+  inactive in local dev — there's no public HTTPS endpoint to register
+  with Telegram, so `apps/worker` long-polls instead, sharing the exact
+  same `processUpdate` handler. Only mounted at all when a Telegram bot
+  token is configured.
 - `POST /webhooks/google/:provider` — reserved for push notifications if
   used later; not implemented in v1 (polling/on-demand is sufficient for
   Gmail/Calendar/Drive at single-user scale).

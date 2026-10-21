@@ -25,3 +25,4 @@ export { taskLimitsSchema, buildTaskLimits } from "./agent/limits.js";
 export type { TaskLimits } from "./agent/limits.js";
 export { AGENT_TASK_QUEUE_NAME, createAgentTaskQueue, enqueueAgentTask, createAgentTaskWorker } from "./queue.js";
 export type { AgentTaskJobData } from "./queue.js";
+export { createAndEnqueueTask, ConcurrentTaskLimitError, SettingsNotFoundError } from "./agent/createTask.js";

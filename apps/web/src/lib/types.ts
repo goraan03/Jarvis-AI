@@ -70,3 +70,17 @@ export interface TaskDetail extends Task {
   steps: TaskStep[];
   toolExecutions: ToolExecution[];
 }
+
+export interface Integration {
+  provider: string;
+  status: "connected" | "disconnected";
+  externalId: string | null;
+  metadata: { username?: string; firstName?: string } | null;
+  updatedAt: string;
+}
+
+export interface LinkCodeResponse {
+  code: string;
+  expiresAt: string;
+  deepLink: string | null;
+}

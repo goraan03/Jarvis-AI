@@ -3,6 +3,7 @@ import { AuthProvider, useAuth } from "./auth/AuthContext.js";
 import LoginPage from "./pages/LoginPage.js";
 import ChatPage from "./pages/ChatPage.js";
 import TasksPage from "./pages/TasksPage.js";
+import IntegrationsPage from "./pages/IntegrationsPage.js";
 
 function RequireAuth({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth();
@@ -34,6 +35,14 @@ export default function App() {
             element={
               <RequireAuth>
                 <TasksPage />
+              </RequireAuth>
+            }
+          />
+          <Route
+            path="/integrations"
+            element={
+              <RequireAuth>
+                <IntegrationsPage />
               </RequireAuth>
             }
           />

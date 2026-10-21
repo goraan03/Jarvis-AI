@@ -4,6 +4,7 @@ import cookieParser from "cookie-parser";
 import type { Queue } from "bullmq";
 import { prisma } from "@jarvis/database";
 import { createModelProvider, createAgentTaskQueue, type ModelProvider, type AgentTaskJobData } from "@jarvis/ai-engine";
+import { createTelegramClient, type TelegramClient } from "@jarvis/integrations";
 import { redis } from "./redis.js";
 import { bullRedisConnection } from "./queueConnection.js";
 import { logger } from "./logger.js";
@@ -14,16 +15,23 @@ import { authRouter } from "./routes/auth.js";
 import { createConversationsRouter } from "./routes/conversations.js";
 import { settingsRouter } from "./routes/settings.js";
 import { createTasksRouter } from "./routes/tasks.js";
+import { createIntegrationsRouter } from "./routes/integrations.js";
+import { createTelegramWebhookRouter } from "./routes/telegramWebhook.js";
 import { loginRateLimit, taskCreationRateLimit } from "./middleware/rateLimit.js";
 
 export interface CreateAppOptions {
   modelProvider?: ModelProvider;
   taskQueue?: Pick<Queue<AgentTaskJobData>, "add">;
+  telegramClient?: TelegramClient;
+  telegramBotUsername?: string;
+  telegramWebhookSecret?: string;
 }
 
 export function createApp(options: CreateAppOptions = {}): Express {
   const modelProvider = options.modelProvider ?? createModelProvider(env.AI_PROVIDER);
   const taskQueue = options.taskQueue ?? createAgentTaskQueue(bullRedisConnection);
+  const telegramClient =
+    options.telegramClient ?? (env.TELEGRAM_BOT_TOKEN ? createTelegramClient(env.TELEGRAM_BOT_TOKEN) : undefined);
 
   const app = express();
 
@@ -66,6 +74,15 @@ export function createApp(options: CreateAppOptions = {}): Express {
   app.use("/api/v1/conversations", requireAuth, createConversationsRouter(modelProvider));
   app.use("/api/v1/settings", requireAuth, settingsRouter);
   app.use("/api/v1/tasks", requireAuth, taskCreationRateLimit, createTasksRouter(taskQueue));
+  app.use("/api/v1/integrations", requireAuth, createIntegrationsRouter(options.telegramBotUsername));
+
+  // Inactive until a public URL is registered with Telegram — see
+  // docs/risk-register.md #5. Local dev uses long-polling (apps/worker)
+  // instead, sharing the same processUpdate handler.
+  if (telegramClient) {
+    const webhookSecret = options.telegramWebhookSecret ?? env.TELEGRAM_WEBHOOK_SECRET;
+    app.use("/webhooks/telegram", createTelegramWebhookRouter({ client: telegramClient, taskQueue }, webhookSecret));
+  }
 
   return app;
 }

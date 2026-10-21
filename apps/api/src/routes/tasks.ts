@@ -1,14 +1,18 @@
 import { Router } from "express";
 import { z } from "zod";
 import { prisma } from "@jarvis/database";
-import { buildTaskLimits, enqueueAgentTask, type AgentTaskJobData } from "@jarvis/ai-engine";
+import {
+  createAndEnqueueTask,
+  ConcurrentTaskLimitError,
+  SettingsNotFoundError,
+  type AgentTaskJobData,
+} from "@jarvis/ai-engine";
 import type { Queue } from "bullmq";
 
 const createTaskSchema = z.object({
   goal: z.string().min(1).max(5000),
 });
 
-const ACTIVE_STATUSES = ["PENDING", "PLANNING", "RUNNING", "AWAITING_APPROVAL"] as const;
 const TERMINAL_STATUSES = ["COMPLETED", "FAILED", "CANCELLED"] as const;
 
 export function createTasksRouter(taskQueue: Pick<Queue<AgentTaskJobData>, "add">) {
@@ -30,33 +34,20 @@ export function createTasksRouter(taskQueue: Pick<Queue<AgentTaskJobData>, "add"
       return;
     }
 
-    const settings = await prisma.agentSettings.findUnique({ where: { userId: req.user!.id } });
-    if (!settings) {
-      res.status(404).json({ error: { code: "NOT_FOUND", message: "Settings not found for this user." } });
-      return;
+    try {
+      const task = await createAndEnqueueTask(taskQueue, { userId: req.user!.id, goal: parsed.data.goal });
+      res.status(201).json(task);
+    } catch (error) {
+      if (error instanceof ConcurrentTaskLimitError) {
+        res.status(429).json({ error: { code: "TOO_MANY_CONCURRENT_TASKS", message: error.message } });
+        return;
+      }
+      if (error instanceof SettingsNotFoundError) {
+        res.status(404).json({ error: { code: "NOT_FOUND", message: "Settings not found for this user." } });
+        return;
+      }
+      throw error;
     }
-
-    const activeCount = await prisma.task.count({
-      where: { userId: req.user!.id, status: { in: [...ACTIVE_STATUSES] } },
-    });
-    if (activeCount >= settings.maxConcurrentTasks) {
-      res.status(429).json({
-        error: {
-          code: "TOO_MANY_CONCURRENT_TASKS",
-          message: `You already have ${activeCount} active task(s), the configured limit is ${settings.maxConcurrentTasks}.`,
-        },
-      });
-      return;
-    }
-
-    const limits = buildTaskLimits(settings);
-    const task = await prisma.task.create({
-      data: { userId: req.user!.id, goal: parsed.data.goal, limits },
-    });
-
-    await enqueueAgentTask(taskQueue as Queue<AgentTaskJobData>, task.id);
-
-    res.status(201).json(task);
   });
 
   router.get("/:id", async (req, res) => {

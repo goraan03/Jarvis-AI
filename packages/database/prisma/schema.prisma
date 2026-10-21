@@ -16,11 +16,13 @@ model User {
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
-  sessions      Session[]
-  conversations Conversation[]
-  settings      AgentSettings?
-  usageRecords  UsageRecord[]
-  tasks         Task[]
+  sessions          Session[]
+  conversations     Conversation[]
+  settings          AgentSettings?
+  usageRecords      UsageRecord[]
+  tasks             Task[]
+  integrations      Integration[]
+  telegramLinkCodes TelegramLinkCode[]
 }
 
 model Session {
@@ -188,4 +190,38 @@ model ToolExecution {
 
   @@index([taskId])
   @@index([toolName])
+}
+
+// --- Phase 4: Telegram -----------------------------------------------------
+
+model Integration {
+  id         String   @id @default(cuid())
+  userId     String
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  provider   String // 'telegram' (more added in later phases)
+  status     String // 'connected' | 'disconnected'
+  externalId String? // e.g. Telegram chat id, as a string
+  metadata   Json? // non-secret details only — never tokens
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@unique([userId, provider])
+}
+
+/** One-time code the owner sends to the bot to prove they control a given
+ * Telegram chat — never a secret stored long-term, single-use, short TTL. */
+model TelegramLinkCode {
+  code      String   @id
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+}
+
+/** Idempotency ledger: every Telegram update_id we've started processing,
+ * so a redelivered update (webhook retry, restarted poll loop) can never
+ * cause a duplicate task or duplicate message — docs/security-model.md §9. */
+model TelegramUpdate {
+  updateId  BigInt   @id
+  createdAt DateTime @default(now())
 }

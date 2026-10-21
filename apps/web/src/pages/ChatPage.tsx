@@ -65,11 +65,11 @@ export default function ChatPage() {
             Sign out
           </button>
         </div>
-        <Link
-          to="/tasks"
-          className="mb-3 block text-sm text-slate-500 hover:underline dark:text-slate-400"
-        >
+        <Link to="/tasks" className="mb-1 block text-sm text-slate-500 hover:underline dark:text-slate-400">
           Tasks →
+        </Link>
+        <Link to="/integrations" className="mb-3 block text-sm text-slate-500 hover:underline dark:text-slate-400">
+          Integrations →
         </Link>
         <button
           onClick={() => createConversation.mutate()}

@@ -67,6 +67,9 @@ export default function TasksPage() {
             Chat
           </Link>
           <span className="text-sm font-medium">Tasks</span>
+          <Link to="/integrations" className="text-sm text-slate-500 hover:underline dark:text-slate-400">
+            Integrations
+          </Link>
         </div>
       </header>
 
