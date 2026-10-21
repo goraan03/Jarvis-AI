@@ -1,0 +1,32 @@
+{
+  "name": "jarvis",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "dev:api": "npm run dev -w @jarvis/api",
+    "dev:web": "npm run dev -w @jarvis/web",
+    "dev:worker": "npm run dev -w @jarvis/worker",
+    "build": "npm run build --workspaces --if-present",
+    "test": "vitest run",
+    "lint": "eslint .",
+    "migrate": "npm run migrate -w @jarvis/database",
+    "bootstrap:owner": "npm run bootstrap:owner -w @jarvis/api"
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.5",
+    "eslint": "^10.13.0",
+    "prettier": "^3.9.10",
+    "tsx": "^4.23.15",
+    "typescript": "^6.0.3",
+    "typescript-eslint": "^8.72.0",
+    "vitest": "^4.1.12"
+  }
+}

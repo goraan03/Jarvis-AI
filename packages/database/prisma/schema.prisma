@@ -1,0 +1,87 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// --- Phase 1-2: owner identity, sessions, chat ---------------------------
+
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  passwordHash String
+  displayName  String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  sessions      Session[]
+  conversations Conversation[]
+  settings      AgentSettings?
+}
+
+model Session {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokenHash String   @unique
+  userAgent String?
+  ipHash    String?
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+}
+
+enum Channel {
+  WEB
+  TELEGRAM
+}
+
+model Conversation {
+  id        String    @id @default(cuid())
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title     String?
+  channel   Channel   @default(WEB)
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  messages  Message[]
+
+  @@index([userId])
+}
+
+enum MessageRole {
+  USER
+  ASSISTANT
+  SYSTEM
+}
+
+model Message {
+  id             String       @id @default(cuid())
+  conversationId String
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  role           MessageRole
+  content        String
+  providerUsed   String?
+  createdAt      DateTime     @default(now())
+
+  @@index([conversationId])
+}
+
+model AgentSettings {
+  id                     String   @id @default(cuid())
+  userId                 String   @unique
+  user                   User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  defaultModel           String   @default("claude-sonnet-5")
+  maxToolCallsPerTask    Int      @default(25)
+  maxModelCallsPerTask   Int      @default(15)
+  maxTaskDurationMs      Int      @default(300000)
+  maxTokensPerTask       Int      @default(200000)
+  maxCostMicroUsdPerTask Int      @default(500000)
+  maxConcurrentTasks     Int      @default(2)
+  autoMemoryEnabled      Boolean  @default(true)
+  approvalExceptions     Json?
+  updatedAt              DateTime @updatedAt
+}

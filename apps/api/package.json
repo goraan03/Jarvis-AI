@@ -1,0 +1,29 @@
+{
+  "name": "@jarvis/api",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch src/server.ts",
+    "build": "tsc -p tsconfig.json",
+    "start": "node dist/server.js",
+    "bootstrap:owner": "tsx src/scripts/bootstrapOwner.ts"
+  },
+  "dependencies": {
+    "@jarvis/database": "^0.1.0",
+    "@jarvis/security": "^0.1.0",
+    "@jarvis/shared": "^0.1.0",
+    "dotenv": "^17.4.2",
+    "express": "^5.3.0",
+    "helmet": "^8.3.0",
+    "ioredis": "^6.0.0",
+    "pino": "^10.4.0"
+  },
+  "devDependencies": {
+    "@types/express": "^5.0.6",
+    "@types/supertest": "^7.2.1",
+    "pino-pretty": "^13.2.0",
+    "supertest": "^7.3.1",
+    "tsx": "^4.23.15"
+  }
+}
