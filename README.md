@@ -10,14 +10,17 @@ the full design. This README only covers running it locally.
 
 ## Status
 
-Phase 6 (memory + scheduler) is complete: the agent can search its own
-long-term memory and propose new entries for your review (Memory page);
-you can create recurring (cron) or one-off scheduled tasks that fire for
-real through BullMQ — survives a worker restart, and a duplicate/near-
-simultaneous trigger is a guaranteed no-op, never a double-run. Model
-calls still go through `MockProvider` only (see "AI provider" below). No
-browser automation or full dashboard polish exist yet — see
-`docs/implementation-roadmap.md` for what each later phase adds.
+Phase 8 (isolated browser agent) is complete, skipping ahead of Phase 7
+(Drive/research) by request: the agent can browse a page, fill (and,
+behind approval, submit) a form, and download small files — all inside
+`apps/browser-worker`, a fully separate OS process from the API and the
+agent worker, with every single request (including redirects) checked
+against an SSRF guard that resolves DNS and blocks RFC1918/link-local/
+loopback/cloud-metadata addresses. A browser task that hangs past its
+timeout genuinely gets its page torn down, not just abandoned. Model
+calls still go through `MockProvider` only (see "AI provider" below).
+Google Drive/research (Phase 7) and full dashboard polish (Phase 9)
+don't exist yet — see `docs/implementation-roadmap.md` for what's left.
 
 ## Prerequisites
 
@@ -73,7 +76,9 @@ npm run dev:worker   # BullMQ worker — runs agent tasks and fires scheduled ta
 
 `npm run dev:worker` must be running for tasks created on the Tasks page
 (or via `POST /api/v1/tasks`) to actually execute, and for scheduled
-tasks to ever fire — the API only enqueues/registers them.
+tasks to ever fire — the API only enqueues/registers them. Browser
+tools additionally require a fourth process — see "Browser automation"
+below; nothing else needs it.
 
 Verify the API is actually talking to real Postgres and Redis:
 
@@ -195,6 +200,34 @@ restarting the worker never loses a recurring job. If you have Telegram
 connected, scheduled-task results (success or failure) are also sent to
 your linked chat automatically — no separate setup needed.
 
+## Browser automation
+
+Optional — off by default. To enable:
+
+```bash
+npx playwright install chromium   # one-time, downloads the browser binary
+```
+
+Set `BROWSER_WORKER_ENABLED=true` in `.env`, then run the fourth process:
+
+```bash
+npm run dev --workspace @jarvis/browser-worker
+```
+
+Once both `apps/worker` and `apps/browser-worker` are running, three
+tools become available: `browse_page` (navigate + extract visible text,
+read-only), `fill_form` (fills form fields and optionally submits —
+**always** requires approval, since submitting a form can trigger
+anything), and `download_file` (text/PDF/JSON/image, up to 10MB, saved
+to a scoped temp directory). Every request any of these make —
+including redirects — is checked against resolved DNS, not just the
+URL string, and blocked if it resolves to a private/link-local/loopback
+address or the cloud metadata endpoint (`169.254.169.254`); a hung page
+is force-closed at its timeout rather than left running. `apps/browser-
+worker` is a genuinely separate process from `apps/worker` — if it
+isn't running, these tools simply aren't offered to the model (see
+`BROWSER_WORKER_ENABLED` above), they don't hang.
+
 ## Testing
 
 ```bash
@@ -207,28 +240,34 @@ registry, the full agent execution loop (multi-step tool chains, limits,
 cancellation, retries), approval pause/resume/reject/expiry/tamper-
 detection, Gmail MIME encoding + Gmail/Calendar tool gating, Telegram
 linking/authorization/idempotency/commands/approval-buttons, memory
-search/proposal gating, and scheduler create/pause/resume/cancel/
-reconciliation/idempotent-firing (against a fake BullMQ queue — the
-restart-survival claim is also verified for real against live Redis;
-see the Phase 6 report) — plus API integration tests for auth/
+search/proposal gating, scheduler create/pause/resume/cancel/
+reconciliation/idempotent-firing, and the SSRF guard against dozens of
+real IPv4/IPv6 cases plus **real headless-Chromium navigation** —
+blocking the cloud metadata endpoint and a private IP for real, loading
+a real public page, and proving a hung page is actually force-closed on
+timeout, not just abandoned — plus API integration tests for auth/
 conversations/settings/tasks/integrations/approvals/memories/
 scheduled-tasks/webhooks (including cross-user isolation) — against the
-`jarvis_test` database, never the dev database.
+`jarvis_test` database, never the dev database. The browser tests need
+`npx playwright install chromium` run once first (see "Browser
+automation" above).
 
 ## Project layout
 
 ```
 apps/
-  web/      React + Vite + TypeScript + Tailwind frontend
-  api/      Express REST API — the only process holding secrets/DB access the frontend can reach
-  worker/   BullMQ worker — runs the agent task execution loop
+  web/             React + Vite + TypeScript + Tailwind frontend
+  api/             Express REST API — the only process holding secrets/DB access the frontend can reach
+  worker/          BullMQ worker — runs the agent task execution loop
+  browser-worker/  Fully separate process — the only one that runs Playwright/Chromium or makes agent-initiated outbound requests to arbitrary URLs
 packages/
-  shared/        Env validation, shared types (grows with each phase)
-  database/      Prisma schema + client
-  security/      Secret redaction, credential encryption, password/session/approval hashing
-  ai-engine/     ModelProvider + MockProvider, tool registry (incl. memory tools), agent execution loop, BullMQ agent-tasks queue
-  integrations/  Telegram (client, linking, polling, approval buttons), Google (OAuth, Gmail, Calendar tools)
-  scheduler/     Recurring/one-off schedules on BullMQ Job Schedulers, boot-time reconciliation, idempotent firing
+  shared/              Env validation, shared types (grows with each phase)
+  database/            Prisma schema + client
+  security/            Secret redaction, credential encryption, password/session/approval hashing
+  ai-engine/           ModelProvider + MockProvider, tool registry (incl. memory tools), agent execution loop, BullMQ agent-tasks queue
+  integrations/        Telegram (client, linking, polling, approval buttons), Google (OAuth, Gmail, Calendar tools)
+  scheduler/           Recurring/one-off schedules on BullMQ Job Schedulers, boot-time reconciliation, idempotent firing
+  browser-automation/  SSRF guard, browser-tasks queue (request/response over BullMQ), Playwright runner, browser tool definitions
 docs/        Architecture, data model, API contracts, security model, roadmap, risk register
 ```
 

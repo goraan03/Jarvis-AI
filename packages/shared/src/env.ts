@@ -16,6 +16,13 @@ const envSchema = z.object({
   GOOGLE_CLIENT_ID: z.string().optional(),
   GOOGLE_CLIENT_SECRET: z.string().optional(),
   GOOGLE_REDIRECT_URI: z.string().optional(),
+  // Opt-in: browser tools are only registered if the operator has
+  // actually started apps/browser-worker — never offered by default,
+  // since otherwise every call would just hang until timeout.
+  BROWSER_WORKER_ENABLED: z
+    .string()
+    .optional()
+    .transform((v) => v === "true"),
 });
 
 export type Env = z.infer<typeof envSchema>;

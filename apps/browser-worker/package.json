@@ -1,0 +1,22 @@
+{
+  "name": "@jarvis/browser-worker",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch src/index.ts",
+    "build": "tsc -p tsconfig.json",
+    "start": "node dist/index.js"
+  },
+  "dependencies": {
+    "@jarvis/browser-automation": "^0.1.0",
+    "@jarvis/shared": "^0.1.0",
+    "dotenv": "^18.0.8",
+    "ioredis": "^6.0.0",
+    "pino": "^10.4.0"
+  },
+  "devDependencies": {
+    "pino-pretty": "^13.2.0",
+    "tsx": "^4.23.15"
+  }
+}

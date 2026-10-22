@@ -14,9 +14,16 @@ function toolKeywords(tool: ToolSpec): string[] {
     .filter((word) => word.length > 2);
 }
 
+function extractUrl(goal: string): string | undefined {
+  return goal.match(/https?:\/\/\S+/)?.[0];
+}
+
 function mockInputFor(tool: ToolSpec, goal: string): unknown {
   if (tool.name === "search_web") {
     return { query: goal };
+  }
+  if (tool.name === "browse_page" || tool.name === "download_file") {
+    return { url: extractUrl(goal) };
   }
   return {};
 }

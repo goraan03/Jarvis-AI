@@ -18,6 +18,7 @@ import {
   getTelegramConversationIdIfConnected,
 } from "@jarvis/integrations";
 import { createScheduledTaskQueue, createScheduledTaskWorker, reconcileScheduledTasks } from "@jarvis/scheduler";
+import { createBrowserTaskQueue, createBrowserTaskQueueEvents, buildBrowserTools } from "@jarvis/browser-automation";
 
 const env = loadEnv();
 const logger = pino({ transport: env.NODE_ENV === "development" ? { target: "pino-pretty" } : undefined });
@@ -37,6 +38,20 @@ async function main() {
   const tools = buildToolRegistry({ braveSearchApiKey: env.BRAVE_SEARCH_API_KEY });
   const taskQueue = createAgentTaskQueue(connection);
   const scheduledQueue = createScheduledTaskQueue(connection);
+
+  // QueueEvents needs its own dedicated connection (BullMQ's
+  // pub/sub-style consumption shouldn't share a connection used for
+  // other blocking operations).
+  let browserQueueEvents: ReturnType<typeof createBrowserTaskQueueEvents> | undefined;
+  if (env.BROWSER_WORKER_ENABLED) {
+    const browserQueue = createBrowserTaskQueue(connection);
+    const browserEventsConnection = new Redis(env.REDIS_URL, { maxRetriesPerRequest: null });
+    browserQueueEvents = createBrowserTaskQueueEvents(browserEventsConnection);
+    tools.push(...buildBrowserTools({ queue: browserQueue, queueEvents: browserQueueEvents }));
+    logger.info("browser tools enabled — apps/browser-worker must be running separately");
+  } else {
+    logger.info("BROWSER_WORKER_ENABLED not set — browser tools disabled");
+  }
 
   const googleConfigured = env.GOOGLE_CLIENT_ID && env.GOOGLE_CLIENT_SECRET && env.GOOGLE_REDIRECT_URI && env.ENCRYPTION_MASTER_KEY;
   const resolveGoogleTools = googleConfigured
@@ -100,7 +115,7 @@ async function main() {
   for (const signal of ["SIGINT", "SIGTERM"] as const) {
     process.on(signal, async () => {
       logger.info({ signal }, "shutting down worker");
-      await Promise.all([worker.close(), scheduledWorker.close()]);
+      await Promise.all([worker.close(), scheduledWorker.close(), browserQueueEvents?.close()]);
       process.exit(0);
     });
   }

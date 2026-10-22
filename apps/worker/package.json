@@ -10,6 +10,7 @@
   },
   "dependencies": {
     "@jarvis/ai-engine": "^0.1.0",
+    "@jarvis/browser-automation": "^0.1.0",
     "@jarvis/integrations": "^0.1.0",
     "@jarvis/scheduler": "^0.1.0",
     "@jarvis/shared": "^0.1.0",

@@ -1,7 +1,12 @@
 {
   "compilerOptions": {
     "target": "ES2022",
-    "lib": ["ES2022"],
+    // DOM is only needed to type-check Playwright page.evaluate()
+    // callbacks (packages/browser-automation), which run inside the
+    // browser, not in Node — included globally because TS applies the
+    // importing package's lib setting when resolving a dependency's
+    // source files directly (we don't build to .d.ts between packages).
+    "lib": ["ES2022", "DOM"],
     "module": "NodeNext",
     "moduleResolution": "NodeNext",
     "esModuleInterop": true,

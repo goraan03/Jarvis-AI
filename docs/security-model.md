@@ -129,6 +129,18 @@ emails, documents, Drive files, Telegram messages — is treated as
   logged to `AuditLog`/`ToolExecution` with enough detail to reconstruct
   what happened, without storing full-page secrets if avoidable.
 
+**Implementation note (as built):** `apps/browser-worker` shares one
+Chromium process across jobs (startup cost) but gives every job its own
+browser *context* — closing that context on completion or timeout
+forcibly stops that job's page/JS execution and network activity. The
+SSRF guard resolves DNS and checks the *resolved* IP (never the hostname
+string alone, which is a DNS-rebinding bypass) on every single request
+the context makes via `context.route()` — covering redirects and
+page-initiated fetches, not just the initial navigation — and
+`download_file` manually walks redirects one hop at a time (`fetch`'s
+built-in redirect-follow would make the request to a malicious
+redirect target before the final URL is ever checked).
+
 ## 8. Input validation, rate limiting, request hygiene
 
 - Every API route validates input via `zod` before touching business
