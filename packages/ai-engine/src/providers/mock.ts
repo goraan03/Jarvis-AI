@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import type { CompletionRequest, CompletionResult, ModelProvider, ToolSpec } from "../types.js";
+import type { CompletionRequest, CompletionResult, ModelProvider, ToolResultMessage, ToolSpec } from "../types.js";
 
 // Rough, provider-agnostic token estimate (chars/4) — good enough for a
 // mock that exists to make usage/cost UI testable, not to be billed on.
@@ -19,13 +19,38 @@ function extractUrl(goal: string): string | undefined {
 }
 
 function mockInputFor(tool: ToolSpec, goal: string): unknown {
-  if (tool.name === "search_web") {
+  if (tool.name === "search_web" || tool.name === "search_drive_files") {
     return { query: goal };
   }
   if (tool.name === "browse_page" || tool.name === "download_file") {
     return { url: extractUrl(goal) };
   }
   return {};
+}
+
+/**
+ * Pulls {toolExecutionId, result} out of every successful tool-result
+ * message (packages/ai-engine/src/agent/engine.ts embeds this shape on
+ * success — see Phase 7) so MockProvider can synthesize a
+ * generate_research_report call that cites real ToolExecution rows,
+ * exactly like a real model would after being shown the same tool
+ * results. Error results aren't JSON and are silently skipped — nothing
+ * worth citing came back from them.
+ */
+function citableSourcesFrom(toolMessages: ToolResultMessage[]): Array<{ toolExecutionId: string; note: string }> {
+  const sources: Array<{ toolExecutionId: string; note: string }> = [];
+  for (const message of toolMessages) {
+    if (message.isError) continue;
+    try {
+      const parsed = JSON.parse(message.content) as { toolExecutionId?: string };
+      if (parsed.toolExecutionId) {
+        sources.push({ toolExecutionId: parsed.toolExecutionId, note: `Result from ${message.name}` });
+      }
+    } catch {
+      // Not a JSON-shaped successful result — nothing citable here.
+    }
+  }
+  return sources;
 }
 
 /**
@@ -46,21 +71,38 @@ export class MockProvider implements ModelProvider {
     const goal = goalMessage && "content" in goalMessage ? goalMessage.content : "";
     const goalLower = goal.toLowerCase();
 
-    const usedToolNames = new Set(request.messages.filter((m) => m.role === "tool").map((m) => m.name));
+    const toolMessages = request.messages.filter((m): m is ToolResultMessage => m.role === "tool");
+    const usedToolNames = new Set(toolMessages.map((m) => m.name));
+    // generate_research_report can only ever be the LAST tool the mock
+    // calls, and only once there's at least one real result to cite —
+    // never offered as a candidate before that, so a chained research
+    // goal always runs its source-gathering tool(s) first.
+    const citableSources = citableSourcesFrom(toolMessages);
 
     const nextTool = tools.find(
-      (tool) => !usedToolNames.has(tool.name) && toolKeywords(tool).some((word) => goalLower.includes(word)),
+      (tool) =>
+        !usedToolNames.has(tool.name) &&
+        (tool.name !== "generate_research_report" || citableSources.length > 0) &&
+        toolKeywords(tool).some((word) => goalLower.includes(word)),
     );
 
     const inputTokens = estimateTokens(request.messages.map((m) => ("content" in m ? m.content : "")).join("\n"));
 
     if (nextTool) {
+      const input =
+        nextTool.name === "generate_research_report"
+          ? {
+              title: `Research report: ${goal}`.slice(0, 300),
+              summary: `Findings based on ${citableSources.length} tool result(s) for: ${goal}`,
+              sources: citableSources,
+            }
+          : mockInputFor(nextTool, goal);
       return {
         provider: "mock",
         model: request.model,
         stopReason: "tool_use",
         content: "",
-        toolCalls: [{ id: randomUUID(), name: nextTool.name, input: mockInputFor(nextTool, goal) }],
+        toolCalls: [{ id: randomUUID(), name: nextTool.name, input }],
         usage: { inputTokens, outputTokens: estimateTokens(nextTool.name) },
       };
     }

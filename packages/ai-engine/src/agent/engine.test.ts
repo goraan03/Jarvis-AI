@@ -6,6 +6,7 @@ import { hashPassword } from "@jarvis/security";
 import { runAgentTask } from "./engine.js";
 import { buildTaskLimits, type TaskLimits } from "./limits.js";
 import { getCurrentTimeTool } from "../tools/getCurrentTime.js";
+import { generateResearchReportTool } from "../tools/generateResearchReport.js";
 import type { ToolDefinition } from "../tools/types.js";
 import { createModelProvider } from "../providers/index.js";
 import type { CompletionRequest, CompletionResult, ModelProvider } from "../types.js";
@@ -83,6 +84,37 @@ describe("runAgentTask — happy path", () => {
     const usage = await prisma.usageRecord.findMany({ where: { taskId: task.id } });
     expect(usage).toHaveLength(3);
     expect(usage.every((u) => u.provider === "mock")).toBe(true);
+  });
+});
+
+describe("runAgentTask — Phase 7 research report gate", () => {
+  it("produces a report whose citation links back to a real ToolExecution row, via the real MockProvider chaining a source tool then generate_research_report", async () => {
+    const { task } = await makeTask("Check the current time and then generate a cited research report");
+    await runAgentTask(task.id, {
+      modelProvider: createModelProvider("mock"),
+      tools: [getCurrentTimeTool, generateResearchReportTool],
+    });
+
+    const finished = await prisma.task.findUniqueOrThrow({ where: { id: task.id } });
+    expect(finished.status).toBe("COMPLETED");
+
+    const executions = await prisma.toolExecution.findMany({ where: { taskId: task.id }, orderBy: { createdAt: "asc" } });
+    expect(executions.map((e) => e.toolName)).toEqual(["get_current_time", "generate_research_report"]);
+    expect(executions.every((e) => e.status === "SUCCEEDED")).toBe(true);
+
+    const sourceExecution = executions.find((e) => e.toolName === "get_current_time")!;
+
+    const report = await prisma.researchReport.findFirstOrThrow({ where: { taskId: task.id } });
+    const sources = report.sources as Array<{ toolExecutionId: string; note: string }>;
+    expect(sources).toHaveLength(1);
+    expect(sources[0].toolExecutionId).toBe(sourceExecution.id);
+
+    // The gate itself: the citation isn't just a plausible-looking string —
+    // it resolves to a real, persisted ToolExecution row for this task.
+    const cited = await prisma.toolExecution.findUniqueOrThrow({ where: { id: sources[0].toolExecutionId } });
+    expect(cited.taskId).toBe(task.id);
+    expect(cited.toolName).toBe("get_current_time");
+    expect(cited.status).toBe("SUCCEEDED");
   });
 });
 

@@ -27,6 +27,7 @@ model User {
   oauthStates       OAuthState[]
   memories          Memory[]
   scheduledTasks    ScheduledTask[]
+  researchReports   ResearchReport[]
 }
 
 model Session {
@@ -151,6 +152,7 @@ model Task {
   toolExecutions   ToolExecution[]
   usageRecords     UsageRecord[]
   approvalRequests ApprovalRequest[]
+  researchReports  ResearchReport[]
 
   @@index([userId, status])
 }
@@ -200,6 +202,29 @@ model ToolExecution {
 
   @@index([taskId])
   @@index([toolName])
+}
+
+// --- Phase 7: research reports ----------------------------------------------
+
+// `sources` is a Json array of {toolExecutionId, note}. Each toolExecutionId
+// is verified (exists, belongs to this report's taskId) by
+// generate_research_report before the report is created — never trusted
+// from model output alone. See docs/security-model.md §6 (tool output is
+// data, not an authority) applied to citations: a citation is only as
+// trustworthy as the real row it points to.
+model ResearchReport {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  taskId    String
+  task      Task     @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  title     String
+  summary   String
+  sources   Json
+  createdAt DateTime @default(now())
+
+  @@index([userId, createdAt])
+  @@index([taskId])
 }
 
 // --- Phase 4: Telegram -----------------------------------------------------

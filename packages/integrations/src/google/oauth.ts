@@ -1,8 +1,9 @@
 import { google } from "googleapis";
 
-// Least-privilege for what Phase 5 actually implements: read/search +
+// Least-privilege for what Phase 5/7 actually implement: read/search +
 // draft creation + send (gated behind approval) for Gmail, read-only for
-// Calendar — docs/architecture.md, docs/implementation-roadmap.md Phase 5.
+// Calendar and Drive — docs/architecture.md,
+// docs/implementation-roadmap.md Phase 5 & 7.
 export const GOOGLE_SCOPES = [
   "openid",
   "email",
@@ -10,6 +11,7 @@ export const GOOGLE_SCOPES = [
   "https://www.googleapis.com/auth/gmail.compose",
   "https://www.googleapis.com/auth/gmail.send",
   "https://www.googleapis.com/auth/calendar.readonly",
+  "https://www.googleapis.com/auth/drive.readonly",
 ];
 
 export interface GoogleOAuthConfig {

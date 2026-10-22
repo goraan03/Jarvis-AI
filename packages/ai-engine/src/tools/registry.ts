@@ -3,6 +3,7 @@ import type { ToolDefinition } from "./types.js";
 import { getCurrentTimeTool } from "./getCurrentTime.js";
 import { createSearchWebTool } from "./searchWeb.js";
 import { searchMemoryTool } from "./searchMemory.js";
+import { generateResearchReportTool } from "./generateResearchReport.js";
 
 export interface ToolRegistryConfig {
   braveSearchApiKey?: string;
@@ -17,7 +18,7 @@ export interface ToolRegistryConfig {
  * search_memory is unconditionally included.
  */
 export function buildToolRegistry(config: ToolRegistryConfig = {}): ToolDefinition<any, any>[] {
-  const tools: ToolDefinition<any, any>[] = [getCurrentTimeTool, searchMemoryTool];
+  const tools: ToolDefinition<any, any>[] = [getCurrentTimeTool, searchMemoryTool, generateResearchReportTool];
   if (config.braveSearchApiKey) {
     tools.push(createSearchWebTool(config.braveSearchApiKey));
   }

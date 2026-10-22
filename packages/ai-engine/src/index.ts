@@ -20,6 +20,7 @@ export type { ToolRegistryConfig } from "./tools/registry.js";
 export { getCurrentTimeTool } from "./tools/getCurrentTime.js";
 export { createSearchWebTool } from "./tools/searchWeb.js";
 export { searchMemoryTool } from "./tools/searchMemory.js";
+export { generateResearchReportTool } from "./tools/generateResearchReport.js";
 export { proposeMemoryTool, resolveMemoryTools } from "./tools/proposeMemory.js";
 export { runAgentTask } from "./agent/engine.js";
 export type { RunAgentTaskDeps } from "./agent/engine.js";

@@ -77,8 +77,11 @@ export default function ChatPage() {
         <Link to="/memory" className="mb-1 block text-sm text-slate-500 hover:underline dark:text-slate-400">
           Memory →
         </Link>
-        <Link to="/scheduled" className="mb-3 block text-sm text-slate-500 hover:underline dark:text-slate-400">
+        <Link to="/scheduled" className="mb-1 block text-sm text-slate-500 hover:underline dark:text-slate-400">
           Scheduled →
+        </Link>
+        <Link to="/research" className="mb-3 block text-sm text-slate-500 hover:underline dark:text-slate-400">
+          Research →
         </Link>
         <button
           onClick={() => createConversation.mutate()}

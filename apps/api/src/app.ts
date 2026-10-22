@@ -21,6 +21,7 @@ import { createTelegramWebhookRouter } from "./routes/telegramWebhook.js";
 import { createGoogleConnectRouter, createGoogleCallbackRouter, type GoogleOAuthRouterConfig } from "./routes/google.js";
 import { createApprovalsRouter } from "./routes/approvals.js";
 import { memoriesRouter } from "./routes/memories.js";
+import { researchReportsRouter } from "./routes/researchReports.js";
 import { createScheduledTasksRouter } from "./routes/scheduledTasks.js";
 import { loginRateLimit, taskCreationRateLimit } from "./middleware/rateLimit.js";
 
@@ -101,6 +102,7 @@ export function createApp(options: CreateAppOptions = {}): Express {
   app.use("/api/v1/integrations", requireAuth, createIntegrationsRouter(options.telegramBotUsername));
   app.use("/api/v1/approvals", requireAuth, createApprovalsRouter(taskQueue));
   app.use("/api/v1/memories", requireAuth, memoriesRouter);
+  app.use("/api/v1/research-reports", requireAuth, researchReportsRouter);
   app.use("/api/v1/scheduled-tasks", requireAuth, createScheduledTasksRouter(schedulerQueue));
 
   // Inactive until a public URL is registered with Telegram — see

@@ -79,6 +79,9 @@ export default function TasksPage() {
           <Link to="/scheduled" className="text-sm text-slate-500 hover:underline dark:text-slate-400">
             Scheduled
           </Link>
+          <Link to="/research" className="text-sm text-slate-500 hover:underline dark:text-slate-400">
+            Research
+          </Link>
         </div>
       </header>
 

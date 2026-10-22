@@ -23,7 +23,14 @@ describe("buildGoogleTools", () => {
     expect(byName.send_email.requiresApproval).toBe(true);
     expect(byName.send_email.riskLevel).toBe("high");
 
-    for (const name of ["search_emails", "read_email", "create_email_draft", "get_calendar_events"]) {
+    for (const name of [
+      "search_emails",
+      "read_email",
+      "create_email_draft",
+      "get_calendar_events",
+      "search_drive_files",
+      "read_drive_file",
+    ]) {
       expect(byName[name].requiresApproval).toBe(false);
       expect(byName[name].riskLevel).toBe("low");
     }

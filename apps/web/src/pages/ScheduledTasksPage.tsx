@@ -61,6 +61,9 @@ export default function ScheduledTasksPage() {
             Memory
           </Link>
           <span className="text-sm font-medium">Scheduled</span>
+          <Link to="/research" className="text-sm text-slate-500 hover:underline dark:text-slate-400">
+            Research
+          </Link>
         </div>
       </header>
 

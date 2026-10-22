@@ -74,6 +74,9 @@ export default function MemoryPage() {
             Scheduled
           </Link>
           <span className="text-sm font-medium">Memory</span>
+          <Link to="/research" className="text-sm text-slate-500 hover:underline dark:text-slate-400">
+            Research
+          </Link>
         </div>
         <button onClick={handleExport} className="text-sm text-slate-500 hover:underline dark:text-slate-400">
           Export all

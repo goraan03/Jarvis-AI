@@ -135,3 +135,34 @@ export interface ScheduledTaskRun {
   status: ScheduledTaskRunStatus;
   createdAt: string;
 }
+
+export interface ResearchReport {
+  id: string;
+  title: string;
+  summary: string;
+  taskId: string;
+  sourceCount: number;
+  createdAt: string;
+}
+
+export interface ResearchReportSource {
+  note: string;
+  toolExecution: {
+    id: string;
+    toolName: string;
+    input: unknown;
+    output: unknown;
+    status: string;
+    durationMs: number | null;
+    createdAt: string;
+  } | null;
+}
+
+export interface ResearchReportDetail {
+  id: string;
+  title: string;
+  summary: string;
+  taskId: string;
+  createdAt: string;
+  sources: ResearchReportSource[];
+}

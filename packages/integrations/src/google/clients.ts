@@ -1,4 +1,4 @@
-import { google, type gmail_v1, type calendar_v3 } from "googleapis";
+import { google, type gmail_v1, type calendar_v3, type drive_v3 } from "googleapis";
 import { getGoogleRefreshToken } from "./credentials.js";
 import { createAuthorizedClient, type GoogleOAuthConfig } from "./oauth.js";
 
@@ -33,4 +33,13 @@ export async function getCalendarClient(
 ): Promise<calendar_v3.Calendar> {
   const auth = await getAuthorizedClient(userId, config, encryptionMasterKey);
   return google.calendar({ version: "v3", auth });
+}
+
+export async function getDriveClient(
+  userId: string,
+  config: GoogleOAuthConfig,
+  encryptionMasterKey: string,
+): Promise<drive_v3.Drive> {
+  const auth = await getAuthorizedClient(userId, config, encryptionMasterKey);
+  return google.drive({ version: "v3", auth });
 }

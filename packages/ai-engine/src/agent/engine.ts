@@ -226,7 +226,7 @@ export async function runAgentTask(taskId: string, deps: RunAgentTaskDeps): Prom
 
   async function executeAndRecord(tool: ToolDefinition<any, any>, input: unknown, toolCall: ToolCall): Promise<void> {
     const execution = await executeToolWithRetries(tool, input, userId, taskId, limits.maxRetriesPerToolCall, recordStep);
-    await prisma.toolExecution.create({
+    const toolExecution = await prisma.toolExecution.create({
       data: {
         taskId,
         toolName: tool.name,
@@ -239,11 +239,18 @@ export async function runAgentTask(taskId: string, deps: RunAgentTaskDeps): Prom
         completedAt: new Date(),
       },
     });
+    // Successful results carry their own ToolExecution id so a later
+    // generate_research_report call can cite exactly which real tool
+    // call backs each claim — docs/implementation-roadmap.md Phase 7.
+    // Failures aren't worth citing, so their message format is
+    // unchanged (plain "Error: ..." text).
     messages.push({
       role: "tool",
       toolCallId: toolCall.id,
       name: tool.name,
-      content: execution.success ? JSON.stringify(execution.output) : `Error: ${execution.errorMessage}`,
+      content: execution.success
+        ? JSON.stringify({ toolExecutionId: toolExecution.id, result: execution.output })
+        : `Error: ${execution.errorMessage}`,
       isError: !execution.success,
     });
   }

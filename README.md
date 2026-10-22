@@ -10,17 +10,30 @@ the full design. This README only covers running it locally.
 
 ## Status
 
-Phase 8 (isolated browser agent) is complete, skipping ahead of Phase 7
-(Drive/research) by request: the agent can browse a page, fill (and,
-behind approval, submit) a form, and download small files — all inside
-`apps/browser-worker`, a fully separate OS process from the API and the
-agent worker, with every single request (including redirects) checked
-against an SSRF guard that resolves DNS and blocks RFC1918/link-local/
-loopback/cloud-metadata addresses. A browser task that hangs past its
-timeout genuinely gets its page torn down, not just abandoned. Model
-calls still go through `MockProvider` only (see "AI provider" below).
-Google Drive/research (Phase 7) and full dashboard polish (Phase 9)
-don't exist yet — see `docs/implementation-roadmap.md` for what's left.
+Phases 1–8 are complete (Phase 7 was finished after Phase 8, out of
+order, by request). The agent can: use real Gmail/Calendar/Drive data,
+browse a page, fill (and, behind approval, submit) a form, download
+small files, search/recall long-term memory, run on a schedule, and
+produce research reports whose every cited source is a real, verified
+`ToolExecution` row — not just something the model claimed. Drive files
+are read via `search_drive_files`/`read_drive_file` (Google Docs/Sheets/
+Slides exported to text/CSV; plain-text/CSV/Markdown/JSON read directly;
+anything else rejected rather than treated as opaque bytes); a
+`generate_research_report` call is rejected outright if any citation
+doesn't resolve to a real, successful tool call belonging to the same
+task. `apps/browser-worker` runs as a fully separate OS process from the
+API and the agent worker, with every single request (including
+redirects) checked against an SSRF guard that resolves DNS and blocks
+RFC1918/link-local/loopback/cloud-metadata addresses. A browser task that
+hangs past its timeout genuinely gets its page torn down, not just
+abandoned. Model calls still go through `MockProvider` only (see "AI
+provider" below). Full dashboard polish (Phase 9) doesn't exist yet — see
+`docs/implementation-roadmap.md` for what's left.
+
+**If you already connected Google before this phase:** the OAuth scope
+list grew to include Drive (read-only); disconnect and reconnect from
+**Integrations** to get a fresh refresh token that actually carries the
+new scope — an old token won't suddenly gain Drive access.
 
 ## Prerequisites
 
@@ -137,16 +150,17 @@ other chat (or from a group) get a rejection reply and never touch your
 data. `TELEGRAM_WEBHOOK_SECRET` is only needed for a future deployment
 with a public webhook — local dev uses long-polling instead.
 
-## Google (Gmail + Calendar)
+## Google (Gmail + Calendar + Drive)
 
 Optional. To enable:
 
 1. In [Google Cloud Console](https://console.cloud.google.com/), create
-   a project, enable the **Gmail API** and **Google Calendar API**, and
-   configure the OAuth consent screen in **Testing** mode with your own
-   Google account added as a test user (this avoids Google's app
-   verification process, which only applies once you go beyond Testing
-   mode / 100 test users — not relevant for a single owner).
+   a project, enable the **Gmail API**, **Google Calendar API**, and
+   **Google Drive API**, and configure the OAuth consent screen in
+   **Testing** mode with your own Google account added as a test user
+   (this avoids Google's app verification process, which only applies
+   once you go beyond Testing mode / 100 test users — not relevant for a
+   single owner).
 2. Create an OAuth 2.0 Client ID (Web application) with redirect URI
    `http://localhost:4100/api/v1/integrations/google/callback` (already
    the default in `.env.example`). Put the client ID/secret in `.env` as
@@ -158,11 +172,23 @@ Optional. To enable:
    **Integrations** → **Connect Google** in the web app and complete the
    consent screen.
 
-Once connected: `search_emails`, `read_email`, `create_email_draft`, and
-`get_calendar_events` work immediately. `send_email` always creates a
-pending approval first — check the **Approvals** page (or your linked
-Telegram chat, if connected) to approve or reject it before anything is
-actually sent.
+Once connected: `search_emails`, `read_email`, `create_email_draft`,
+`get_calendar_events`, `search_drive_files`, and `read_drive_file` work
+immediately. `send_email` always creates a pending approval first — check
+the **Approvals** page (or your linked Telegram chat, if connected) to
+approve or reject it before anything is actually sent.
+
+## Research reports
+
+Ask the agent to research something and cite its sources (e.g. "Research
+our Q3 budget using the spreadsheet in Drive and give me a report with
+citations") and, once it calls `generate_research_report`, the result
+shows up on the **Research** page: a summary plus the exact
+`ToolExecution` rows that back it. Every citation is re-verified against
+real tool-call rows — if the model names a `toolExecutionId` that
+doesn't exist, doesn't belong to the current task, or didn't actually
+succeed, the whole `generate_research_report` call fails rather than
+silently dropping the bad citation.
 
 ## Approvals
 
@@ -264,8 +290,8 @@ packages/
   shared/              Env validation, shared types (grows with each phase)
   database/            Prisma schema + client
   security/            Secret redaction, credential encryption, password/session/approval hashing
-  ai-engine/           ModelProvider + MockProvider, tool registry (incl. memory tools), agent execution loop, BullMQ agent-tasks queue
-  integrations/        Telegram (client, linking, polling, approval buttons), Google (OAuth, Gmail, Calendar tools)
+  ai-engine/           ModelProvider + MockProvider, tool registry (incl. memory + research-report tools), agent execution loop, BullMQ agent-tasks queue
+  integrations/        Telegram (client, linking, polling, approval buttons), Google (OAuth, Gmail, Calendar, Drive tools)
   scheduler/           Recurring/one-off schedules on BullMQ Job Schedulers, boot-time reconciliation, idempotent firing
   browser-automation/  SSRF guard, browser-tasks queue (request/response over BullMQ), Playwright runner, browser tool definitions
 docs/        Architecture, data model, API contracts, security model, roadmap, risk register

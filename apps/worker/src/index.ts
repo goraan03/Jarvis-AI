@@ -60,7 +60,7 @@ async function main() {
         encryptionMasterKey: env.ENCRYPTION_MASTER_KEY!,
       })
     : async () => [] as ToolDefinition<any, any>[];
-  logger.info({ googleConfigured: !!googleConfigured }, googleConfigured ? "Gmail/Calendar tools available per-user" : "Google not configured — Gmail/Calendar tools disabled");
+  logger.info({ googleConfigured: !!googleConfigured }, googleConfigured ? "Gmail/Calendar/Drive tools available per-user" : "Google not configured — Gmail/Calendar/Drive tools disabled");
 
   async function resolveDynamicTools(userId: string): Promise<ToolDefinition<any, any>[]> {
     const [googleTools, memoryTools] = await Promise.all([resolveGoogleTools(userId), resolveMemoryTools(userId)]);

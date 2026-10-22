@@ -7,6 +7,7 @@ import IntegrationsPage from "./pages/IntegrationsPage.js";
 import ApprovalsPage from "./pages/ApprovalsPage.js";
 import MemoryPage from "./pages/MemoryPage.js";
 import ScheduledTasksPage from "./pages/ScheduledTasksPage.js";
+import ResearchPage from "./pages/ResearchPage.js";
 
 function RequireAuth({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth();
@@ -70,6 +71,14 @@ export default function App() {
             element={
               <RequireAuth>
                 <ScheduledTasksPage />
+              </RequireAuth>
+            }
+          />
+          <Route
+            path="/research"
+            element={
+              <RequireAuth>
+                <ResearchPage />
               </RequireAuth>
             }
           />
