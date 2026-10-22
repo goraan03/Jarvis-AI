@@ -14,6 +14,7 @@
     "dev:api": "npm run dev -w @jarvis/api",
     "dev:web": "npm run dev -w @jarvis/web",
     "dev:worker": "npm run dev -w @jarvis/worker",
+    "dev:browser-worker": "npm run dev -w @jarvis/browser-worker",
     "build": "npm run build --workspaces --if-present",
     "test": "vitest run",
     "lint": "eslint .",

@@ -50,6 +50,11 @@ describe("auth", () => {
 
     const meAfterLogoutRes = await agent.get("/api/v1/auth/me");
     expect(meAfterLogoutRes.status).toBe(401);
+
+    const auditActions = (await prisma.auditLog.findMany({ where: { userId: user.id }, orderBy: { createdAt: "asc" } })).map(
+      (a) => a.action,
+    );
+    expect(auditActions).toEqual(["auth.login", "auth.logout"]);
   });
 
   it("rejects an unauthenticated request to a protected route", async () => {

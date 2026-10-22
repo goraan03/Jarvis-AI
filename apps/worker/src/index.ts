@@ -23,6 +23,19 @@ import { createBrowserTaskQueue, createBrowserTaskQueueEvents, buildBrowserTools
 const env = loadEnv();
 const logger = pino({ transport: env.NODE_ENV === "development" ? { target: "pino-pretty" } : undefined });
 
+// BullMQ already catches errors thrown inside job processors (see the
+// worker.on("failed", ...) handlers below) without crashing the process —
+// this is only for genuinely unanticipated errors outside that lifecycle.
+// Fail loud and exit; a process manager is the actual uptime mechanism.
+process.on("uncaughtException", (err) => {
+  logger.fatal({ err }, "uncaught exception — exiting");
+  process.exit(1);
+});
+process.on("unhandledRejection", (reason) => {
+  logger.fatal({ err: reason }, "unhandled rejection — exiting");
+  process.exit(1);
+});
+
 async function main() {
   // Liveness check — proves Redis is actually reachable before BullMQ
   // starts (BullMQ's own connection retries would otherwise mask a

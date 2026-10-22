@@ -28,6 +28,7 @@ model User {
   memories          Memory[]
   scheduledTasks    ScheduledTask[]
   researchReports   ResearchReport[]
+  auditLogs         AuditLog[]
 }
 
 model Session {
@@ -225,6 +226,27 @@ model ResearchReport {
 
   @@index([userId, createdAt])
   @@index([taskId])
+}
+
+// --- Phase 9: audit log -----------------------------------------------------
+
+// action is a dotted verb like 'auth.login', 'approval.approve',
+// 'integration.disconnect', 'tool.execute' — not an enum, so new actions
+// never require a migration. metadata is redacted (packages/security
+// redactObject) before insert, never raw request/response bodies — see
+// docs/security-model.md §10.
+model AuditLog {
+  id         String   @id @default(cuid())
+  userId     String
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  action     String
+  entityType String?
+  entityId   String?
+  metadata   Json?
+  createdAt  DateTime @default(now())
+
+  @@index([userId, createdAt])
+  @@index([action])
 }
 
 // --- Phase 4: Telegram -----------------------------------------------------

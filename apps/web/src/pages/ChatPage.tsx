@@ -65,6 +65,9 @@ export default function ChatPage() {
             Sign out
           </button>
         </div>
+        <Link to="/" className="mb-1 block text-sm text-slate-500 hover:underline dark:text-slate-400">
+          Dashboard →
+        </Link>
         <Link to="/tasks" className="mb-1 block text-sm text-slate-500 hover:underline dark:text-slate-400">
           Tasks →
         </Link>
@@ -80,8 +83,17 @@ export default function ChatPage() {
         <Link to="/scheduled" className="mb-1 block text-sm text-slate-500 hover:underline dark:text-slate-400">
           Scheduled →
         </Link>
-        <Link to="/research" className="mb-3 block text-sm text-slate-500 hover:underline dark:text-slate-400">
+        <Link to="/research" className="mb-1 block text-sm text-slate-500 hover:underline dark:text-slate-400">
           Research →
+        </Link>
+        <Link to="/usage" className="mb-1 block text-sm text-slate-500 hover:underline dark:text-slate-400">
+          Usage →
+        </Link>
+        <Link to="/activity" className="mb-1 block text-sm text-slate-500 hover:underline dark:text-slate-400">
+          Activity →
+        </Link>
+        <Link to="/settings" className="mb-3 block text-sm text-slate-500 hover:underline dark:text-slate-400">
+          Settings →
         </Link>
         <button
           onClick={() => createConversation.mutate()}

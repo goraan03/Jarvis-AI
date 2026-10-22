@@ -1,5 +1,5 @@
 import { prisma } from "@jarvis/database";
-import { hashApprovalInput } from "@jarvis/security";
+import { hashApprovalInput, writeAuditLog } from "@jarvis/security";
 import type { ModelMessage, ModelProvider, ToolCall } from "../types.js";
 import type { ToolDefinition } from "../tools/types.js";
 import { findTool, toToolSpecs } from "../tools/registry.js";
@@ -238,6 +238,13 @@ export async function runAgentTask(taskId: string, deps: RunAgentTaskDeps): Prom
         durationMs: execution.durationMs,
         completedAt: new Date(),
       },
+    });
+    await writeAuditLog({
+      userId,
+      action: "tool.execute",
+      entityType: "ToolExecution",
+      entityId: toolExecution.id,
+      metadata: { toolName: tool.name, status: toolExecution.status, taskId },
     });
     // Successful results carry their own ToolExecution id so a later
     // generate_research_report call can cite exactly which real tool

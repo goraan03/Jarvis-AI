@@ -65,6 +65,9 @@ export default function MemoryPage() {
         <div className="flex items-center gap-4">
           <span className="font-semibold">Jarvis</span>
           <Link to="/" className="text-sm text-slate-500 hover:underline dark:text-slate-400">
+            Dashboard
+          </Link>
+          <Link to="/chat" className="text-sm text-slate-500 hover:underline dark:text-slate-400">
             Chat
           </Link>
           <Link to="/tasks" className="text-sm text-slate-500 hover:underline dark:text-slate-400">
@@ -76,6 +79,15 @@ export default function MemoryPage() {
           <span className="text-sm font-medium">Memory</span>
           <Link to="/research" className="text-sm text-slate-500 hover:underline dark:text-slate-400">
             Research
+          </Link>
+          <Link to="/usage" className="text-sm text-slate-500 hover:underline dark:text-slate-400">
+            Usage
+          </Link>
+          <Link to="/activity" className="text-sm text-slate-500 hover:underline dark:text-slate-400">
+            Activity
+          </Link>
+          <Link to="/settings" className="text-sm text-slate-500 hover:underline dark:text-slate-400">
+            Settings
           </Link>
         </div>
         <button onClick={handleExport} className="text-sm text-slate-500 hover:underline dark:text-slate-400">

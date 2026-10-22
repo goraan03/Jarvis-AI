@@ -56,6 +56,10 @@ describe("approvals", () => {
     expect(res.status).toBe(200);
     expect(res.body.status).toBe("APPROVED");
     expect(queue.add).toHaveBeenCalledTimes(1);
+
+    const audit = await prisma.auditLog.findFirst({ where: { userId: user.id, action: "approval.approve" } });
+    expect(audit?.entityId).toBe(approval.id);
+    expect((audit?.metadata as { toolName?: string } | null)?.toolName).toBe("send_email");
   });
 
   it("rejects approving the same request twice", async () => {

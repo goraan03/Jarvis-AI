@@ -2,6 +2,7 @@ import { Router, type Request, type Response } from "express";
 import type { Queue } from "bullmq";
 import { prisma } from "@jarvis/database";
 import { decideApproval, ApprovalNotFoundError, ApprovalAlreadyDecidedError, type AgentTaskJobData } from "@jarvis/ai-engine";
+import { writeAuditLog } from "@jarvis/security";
 
 export function createApprovalsRouter(taskQueue: Pick<Queue<AgentTaskJobData>, "add">) {
   const router = Router();
@@ -28,6 +29,13 @@ export function createApprovalsRouter(taskQueue: Pick<Queue<AgentTaskJobData>, "
   async function handleDecision(req: Request, res: Response, decision: "APPROVED" | "REJECTED") {
     try {
       const approval = await decideApproval(String(req.params.id), decision, req.user!.id, taskQueue);
+      await writeAuditLog({
+        userId: req.user!.id,
+        action: decision === "APPROVED" ? "approval.approve" : "approval.reject",
+        entityType: "ApprovalRequest",
+        entityId: approval.id,
+        metadata: { toolName: approval.toolName },
+      });
       res.json(approval);
     } catch (error) {
       if (error instanceof ApprovalNotFoundError) {

@@ -48,6 +48,20 @@ describe("integrations", () => {
     expect(res.status).toBe(404);
   });
 
+  it("writes an audit log entry when an integration is disconnected", async () => {
+    const app = createApp({ taskQueue: { add: async () => ({}) } as any });
+    const { agent, user } = await loginNewUser(app);
+    await prisma.integration.create({
+      data: { userId: user.id, provider: "telegram", status: "connected", externalId: "12345" },
+    });
+
+    const res = await agent.delete("/api/v1/integrations/telegram").set("X-Jarvis-Client", "web");
+    expect(res.status).toBe(200);
+
+    const audit = await prisma.auditLog.findFirst({ where: { userId: user.id, action: "integration.disconnect" } });
+    expect((audit?.metadata as { provider?: string } | null)?.provider).toBe("telegram");
+  });
+
   it("does not let one user see another user's integration status", async () => {
     const app = createApp({ taskQueue: { add: async () => ({}) } as any });
     const { agent: agentA, user: userA } = await loginNewUser(app);

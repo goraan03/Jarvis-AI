@@ -7,6 +7,7 @@ import {
   consumeOAuthState,
   type GoogleOAuthConfig,
 } from "@jarvis/integrations";
+import { writeAuditLog } from "@jarvis/security";
 import { logger } from "../logger.js";
 
 export interface GoogleOAuthRouterConfig {
@@ -64,6 +65,7 @@ export function createGoogleCallbackRouter(config: GoogleOAuthRouterConfig) {
     try {
       const tokens = await exchangeGoogleCode(config.oauth, code);
       await saveGoogleCredential(userId, tokens.refreshToken, tokens.email, config.encryptionMasterKey);
+      await writeAuditLog({ userId, action: "integration.connect", entityType: "Integration", entityId: "google", metadata: { provider: "google" } });
       res.redirect("/integrations?google=connected");
     } catch (err) {
       logger.error({ err }, "google oauth callback failed");

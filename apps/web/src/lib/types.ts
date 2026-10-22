@@ -166,3 +166,38 @@ export interface ResearchReportDetail {
   createdAt: string;
   sources: ResearchReportSource[];
 }
+
+export interface AgentSettings {
+  defaultModel: string;
+  maxToolCallsPerTask: number;
+  maxModelCallsPerTask: number;
+  maxTaskDurationMs: number;
+  maxTokensPerTask: number;
+  maxCostMicroUsdPerTask: number;
+  maxConcurrentTasks: number;
+  maxRetriesPerToolCall: number;
+  autoMemoryEnabled: boolean;
+  updatedAt: string;
+}
+
+export interface UsageRollup {
+  inputTokens: number;
+  outputTokens: number;
+  estimatedCostMicroUsd: number;
+  callCount: number;
+}
+
+export interface UsageResponse {
+  totals: UsageRollup;
+  byDay: (UsageRollup & { date: string })[];
+}
+
+export interface AuditLogEntry {
+  id: string;
+  userId: string;
+  action: string;
+  entityType: string | null;
+  entityId: string | null;
+  metadata: Record<string, unknown> | null;
+  createdAt: string;
+}

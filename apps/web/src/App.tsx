@@ -8,6 +8,10 @@ import ApprovalsPage from "./pages/ApprovalsPage.js";
 import MemoryPage from "./pages/MemoryPage.js";
 import ScheduledTasksPage from "./pages/ScheduledTasksPage.js";
 import ResearchPage from "./pages/ResearchPage.js";
+import DashboardPage from "./pages/DashboardPage.js";
+import UsagePage from "./pages/UsagePage.js";
+import ActivityPage from "./pages/ActivityPage.js";
+import SettingsPage from "./pages/SettingsPage.js";
 
 function RequireAuth({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth();
@@ -28,6 +32,14 @@ export default function App() {
           <Route path="/login" element={<LoginPage />} />
           <Route
             path="/"
+            element={
+              <RequireAuth>
+                <DashboardPage />
+              </RequireAuth>
+            }
+          />
+          <Route
+            path="/chat"
             element={
               <RequireAuth>
                 <ChatPage />
@@ -79,6 +91,30 @@ export default function App() {
             element={
               <RequireAuth>
                 <ResearchPage />
+              </RequireAuth>
+            }
+          />
+          <Route
+            path="/usage"
+            element={
+              <RequireAuth>
+                <UsagePage />
+              </RequireAuth>
+            }
+          />
+          <Route
+            path="/activity"
+            element={
+              <RequireAuth>
+                <ActivityPage />
+              </RequireAuth>
+            }
+          />
+          <Route
+            path="/settings"
+            element={
+              <RequireAuth>
+                <SettingsPage />
               </RequireAuth>
             }
           />

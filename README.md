@@ -10,14 +10,17 @@ the full design. This README only covers running it locally.
 
 ## Status
 
-Phases 1–8 are complete (Phase 7 was finished after Phase 8, out of
-order, by request). The agent can: use real Gmail/Calendar/Drive data,
-browse a page, fill (and, behind approval, submit) a form, download
-small files, search/recall long-term memory, run on a schedule, and
-produce research reports whose every cited source is a real, verified
-`ToolExecution` row — not just something the model claimed. Drive files
-are read via `search_drive_files`/`read_drive_file` (Google Docs/Sheets/
-Slides exported to text/CSV; plain-text/CSV/Markdown/JSON read directly;
+Phases 1–9 are complete (Phase 7 was finished after Phase 8, out of
+order, by request) — this is the full v1 scope from
+`docs/implementation-roadmap.md`; Phase 10 is a docs-only analysis of
+what multi-tenant/commercial use would require, not something built here.
+The agent can: use real Gmail/Calendar/Drive data, browse a page, fill
+(and, behind approval, submit) a form, download small files,
+search/recall long-term memory, run on a schedule, and produce research
+reports whose every cited source is a real, verified `ToolExecution` row
+— not just something the model claimed. Drive files are read via
+`search_drive_files`/`read_drive_file` (Google Docs/Sheets/Slides
+exported to text/CSV; plain-text/CSV/Markdown/JSON read directly;
 anything else rejected rather than treated as opaque bytes); a
 `generate_research_report` call is rejected outright if any citation
 doesn't resolve to a real, successful tool call belonging to the same
@@ -26,9 +29,14 @@ API and the agent worker, with every single request (including
 redirects) checked against an SSRF guard that resolves DNS and blocks
 RFC1918/link-local/loopback/cloud-metadata addresses. A browser task that
 hangs past its timeout genuinely gets its page torn down, not just
-abandoned. Model calls still go through `MockProvider` only (see "AI
-provider" below). Full dashboard polish (Phase 9) doesn't exist yet — see
-`docs/implementation-roadmap.md` for what's left.
+abandoned. The full dashboard (task/usage/activity/settings, every number
+from a real query), an `AuditLog` of every login/logout/approval
+decision/integration change/tool execution, a JSON-only global error
+handler, and a drilled (not just documented) Postgres backup/restore
+procedure all landed in Phase 9 — see `docs/operations.md` and
+`docs/deployment.md`. Model calls still go through `MockProvider` only
+(see "AI provider" below) — real Claude API integration hasn't been
+requested yet.
 
 **If you already connected Google before this phase:** the OAuth scope
 list grew to include Drive (read-only); disconnect and reconnect from
@@ -237,7 +245,7 @@ npx playwright install chromium   # one-time, downloads the browser binary
 Set `BROWSER_WORKER_ENABLED=true` in `.env`, then run the fourth process:
 
 ```bash
-npm run dev --workspace @jarvis/browser-worker
+npm run dev:browser-worker
 ```
 
 Once both `apps/worker` and `apps/browser-worker` are running, three

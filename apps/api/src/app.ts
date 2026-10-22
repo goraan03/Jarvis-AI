@@ -22,8 +22,11 @@ import { createGoogleConnectRouter, createGoogleCallbackRouter, type GoogleOAuth
 import { createApprovalsRouter } from "./routes/approvals.js";
 import { memoriesRouter } from "./routes/memories.js";
 import { researchReportsRouter } from "./routes/researchReports.js";
+import { auditLogRouter } from "./routes/auditLog.js";
+import { usageRouter } from "./routes/usage.js";
 import { createScheduledTasksRouter } from "./routes/scheduledTasks.js";
 import { loginRateLimit, taskCreationRateLimit } from "./middleware/rateLimit.js";
+import { errorHandler } from "./middleware/errorHandler.js";
 
 type SchedulerQueue = Pick<Queue<ScheduledJobData>, "upsertJobScheduler" | "removeJobScheduler" | "getJob" | "add" | "remove">;
 
@@ -103,6 +106,8 @@ export function createApp(options: CreateAppOptions = {}): Express {
   app.use("/api/v1/approvals", requireAuth, createApprovalsRouter(taskQueue));
   app.use("/api/v1/memories", requireAuth, memoriesRouter);
   app.use("/api/v1/research-reports", requireAuth, researchReportsRouter);
+  app.use("/api/v1/audit-log", requireAuth, auditLogRouter);
+  app.use("/api/v1/usage", requireAuth, usageRouter);
   app.use("/api/v1/scheduled-tasks", requireAuth, createScheduledTasksRouter(schedulerQueue));
 
   // Inactive until a public URL is registered with Telegram — see
@@ -112,6 +117,8 @@ export function createApp(options: CreateAppOptions = {}): Express {
     const webhookSecret = options.telegramWebhookSecret ?? env.TELEGRAM_WEBHOOK_SECRET;
     app.use("/webhooks/telegram", createTelegramWebhookRouter({ client: telegramClient, taskQueue }, webhookSecret));
   }
+
+  app.use(errorHandler);
 
   return app;
 }

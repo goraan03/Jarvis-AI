@@ -84,6 +84,9 @@ describe("runAgentTask — happy path", () => {
     const usage = await prisma.usageRecord.findMany({ where: { taskId: task.id } });
     expect(usage).toHaveLength(3);
     expect(usage.every((u) => u.provider === "mock")).toBe(true);
+
+    const auditEntries = await prisma.auditLog.findMany({ where: { userId: task.userId, action: "tool.execute" } });
+    expect(auditEntries.map((a) => (a.metadata as { toolName?: string }).toolName).sort()).toEqual(["echo_text", "get_current_time"]);
   });
 });
 
