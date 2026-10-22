@@ -98,3 +98,40 @@ export interface ApprovalRequest {
   expiresAt: string;
   createdAt: string;
 }
+
+export type MemoryStatus = "PROPOSED" | "APPROVED" | "REJECTED" | "ARCHIVED";
+
+export interface Memory {
+  id: string;
+  category: string;
+  content: string;
+  source: string;
+  confidence: number;
+  status: MemoryStatus;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export type ScheduledTaskRunStatus = "created" | "skipped_concurrency_limit" | "failed";
+
+export interface ScheduledTask {
+  id: string;
+  name: string;
+  cronExpression: string | null;
+  runAt: string | null;
+  timezone: string;
+  payload: { goal: string };
+  status: "active" | "paused" | "cancelled";
+  lastRunAt: string | null;
+  lastStatus: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ScheduledTaskRun {
+  id: string;
+  idempotencyKey: string;
+  taskId: string | null;
+  status: ScheduledTaskRunStatus;
+  createdAt: string;
+}

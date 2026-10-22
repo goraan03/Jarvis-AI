@@ -10,14 +10,13 @@ the full design. This README only covers running it locally.
 
 ## Status
 
-Phase 5 (approvals + Gmail/Calendar) is complete: the agent can search/
-read Gmail, create drafts, and read your Calendar immediately once
-connected — but **sending** an email always pauses the task and waits
-for your explicit approval (web UI or Telegram buttons) before it
-touches the real Gmail API. Approval is bound to the exact parameters;
-if they ever drifted after approval, execution would still be blocked.
-Model calls still go through `MockProvider` only (see "AI provider"
-below). No memory or scheduling exist yet — see
+Phase 6 (memory + scheduler) is complete: the agent can search its own
+long-term memory and propose new entries for your review (Memory page);
+you can create recurring (cron) or one-off scheduled tasks that fire for
+real through BullMQ — survives a worker restart, and a duplicate/near-
+simultaneous trigger is a guaranteed no-op, never a double-run. Model
+calls still go through `MockProvider` only (see "AI provider" below). No
+browser automation or full dashboard polish exist yet — see
 `docs/implementation-roadmap.md` for what each later phase adds.
 
 ## Prerequisites
@@ -69,12 +68,12 @@ manager):
 ```bash
 npm run dev:api      # Express API on http://localhost:4100
 npm run dev:web      # Vite dev server on http://localhost:5180 (proxies /api to the API)
-npm run dev:worker   # BullMQ worker — runs agent tasks from the agent-tasks queue
+npm run dev:worker   # BullMQ worker — runs agent tasks and fires scheduled tasks
 ```
 
 `npm run dev:worker` must be running for tasks created on the Tasks page
-(or via `POST /api/v1/tasks`) to actually execute — the API only
-enqueues them.
+(or via `POST /api/v1/tasks`) to actually execute, and for scheduled
+tasks to ever fire — the API only enqueues/registers them.
 
 Verify the API is actually talking to real Postgres and Redis:
 
@@ -170,6 +169,32 @@ task from exactly where it paused; the approval is bound to those exact
 parameters via a hash checked again at execution time, not just trusted
 because the status says `APPROVED`.
 
+## Memory
+
+The agent can call `search_memory` any time (read-only, always
+available) and `propose_memory` to suggest something worth remembering —
+proposals never auto-approve; they land on the **Memory** page for you
+to approve, edit, reject, or delete. Turn proposals off entirely by
+setting `autoMemoryEnabled: false` via `PATCH /api/v1/settings` — the
+`propose_memory` tool simply stops being offered to the model when you
+do. Search uses Postgres full-text search and only ever considers
+approved memories. Export everything (any status) from the Memory
+page's **Export all** button.
+
+## Scheduled tasks
+
+Create a recurring (`cronExpression`, e.g. `0 8 * * *` for daily at
+8am) or one-off (`runAt`) task from the **Scheduled** page — each firing
+creates a real agent task with the goal you configured (e.g. "Summarize
+my calendar for today and any important unread emails" once Google is
+connected). Pause/resume/cancel takes effect immediately in the
+underlying BullMQ schedule, not just in the database. Scheduling is
+backed by Postgres, not just Redis: `apps/worker` re-registers every
+active schedule with BullMQ on every boot, so losing Redis or
+restarting the worker never loses a recurring job. If you have Telegram
+connected, scheduled-task results (success or failure) are also sent to
+your linked chat automatically — no separate setup needed.
+
 ## Testing
 
 ```bash
@@ -181,11 +206,14 @@ credential encryption, session-token helpers, MockProvider, the tool
 registry, the full agent execution loop (multi-step tool chains, limits,
 cancellation, retries), approval pause/resume/reject/expiry/tamper-
 detection, Gmail MIME encoding + Gmail/Calendar tool gating, Telegram
-linking/authorization/idempotency/commands/approval-buttons (against
-fake Telegram/Google clients, never the real APIs), and API integration
-tests for auth/conversations/settings/tasks/integrations/approvals/
-webhooks (including cross-user isolation) — against the `jarvis_test`
-database, never the dev database.
+linking/authorization/idempotency/commands/approval-buttons, memory
+search/proposal gating, and scheduler create/pause/resume/cancel/
+reconciliation/idempotent-firing (against a fake BullMQ queue — the
+restart-survival claim is also verified for real against live Redis;
+see the Phase 6 report) — plus API integration tests for auth/
+conversations/settings/tasks/integrations/approvals/memories/
+scheduled-tasks/webhooks (including cross-user isolation) — against the
+`jarvis_test` database, never the dev database.
 
 ## Project layout
 
@@ -198,8 +226,9 @@ packages/
   shared/        Env validation, shared types (grows with each phase)
   database/      Prisma schema + client
   security/      Secret redaction, credential encryption, password/session/approval hashing
-  ai-engine/     ModelProvider + MockProvider, tool registry, agent execution loop (incl. approval pause/resume), BullMQ queue
+  ai-engine/     ModelProvider + MockProvider, tool registry (incl. memory tools), agent execution loop, BullMQ agent-tasks queue
   integrations/  Telegram (client, linking, polling, approval buttons), Google (OAuth, Gmail, Calendar tools)
+  scheduler/     Recurring/one-off schedules on BullMQ Job Schedulers, boot-time reconciliation, idempotent firing
 docs/        Architecture, data model, API contracts, security model, roadmap, risk register
 ```
 

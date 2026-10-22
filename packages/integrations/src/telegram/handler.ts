@@ -10,7 +10,7 @@ import {
   type AgentTaskJobData,
 } from "@jarvis/ai-engine";
 import type { TelegramCallbackQuery, TelegramClient, TelegramUpdate } from "./types.js";
-import { consumeLinkCode, findUserByTelegramChatId } from "./linking.js";
+import { consumeLinkCode, findUserByTelegramChatId, getTelegramConversationIdIfConnected } from "./linking.js";
 
 export interface TelegramHandlerDeps {
   client: TelegramClient;
@@ -18,13 +18,6 @@ export interface TelegramHandlerDeps {
 }
 
 const ACTIVE_STATUSES = ["PENDING", "PLANNING", "RUNNING", "AWAITING_APPROVAL"] as const;
-
-async function ensureTelegramConversation(userId: string): Promise<string> {
-  const existing = await prisma.conversation.findFirst({ where: { userId, channel: "TELEGRAM" } });
-  if (existing) return existing.id;
-  const created = await prisma.conversation.create({ data: { userId, channel: "TELEGRAM", title: "Telegram" } });
-  return created.id;
-}
 
 export function shortId(id: string): string {
   return id.slice(0, 8);
@@ -56,9 +49,9 @@ async function handleCancelCommand(deps: TelegramHandlerDeps, chatId: number, us
 }
 
 async function handleNewTaskGoal(deps: TelegramHandlerDeps, chatId: number, userId: string, goal: string) {
-  const conversationId = await ensureTelegramConversation(userId);
+  const conversationId = await getTelegramConversationIdIfConnected(userId);
   try {
-    const task = await createAndEnqueueTask(deps.taskQueue, { userId, goal, conversationId });
+    const task = await createAndEnqueueTask(deps.taskQueue, { userId, goal, conversationId: conversationId ?? undefined });
     await deps.client.sendMessage({ chatId, text: `⏳ Working on it (task ${shortId(task.id)}): ${goal}` });
   } catch (error) {
     if (error instanceof ConcurrentTaskLimitError) {

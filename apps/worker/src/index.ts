@@ -2,8 +2,22 @@ import "dotenv/config";
 import { Redis } from "ioredis";
 import pino from "pino";
 import { loadEnv } from "@jarvis/shared";
-import { createModelProvider, buildToolRegistry, createAgentTaskWorker, createAgentTaskQueue } from "@jarvis/ai-engine";
-import { createTelegramClient, startTelegramPolling, notifyTaskResult, createGoogleToolsResolver } from "@jarvis/integrations";
+import {
+  createModelProvider,
+  buildToolRegistry,
+  createAgentTaskWorker,
+  createAgentTaskQueue,
+  resolveMemoryTools,
+  type ToolDefinition,
+} from "@jarvis/ai-engine";
+import {
+  createTelegramClient,
+  startTelegramPolling,
+  notifyTaskResult,
+  createGoogleToolsResolver,
+  getTelegramConversationIdIfConnected,
+} from "@jarvis/integrations";
+import { createScheduledTaskQueue, createScheduledTaskWorker, reconcileScheduledTasks } from "@jarvis/scheduler";
 
 const env = loadEnv();
 const logger = pino({ transport: env.NODE_ENV === "development" ? { target: "pino-pretty" } : undefined });
@@ -22,15 +36,21 @@ async function main() {
   const modelProvider = createModelProvider(env.AI_PROVIDER);
   const tools = buildToolRegistry({ braveSearchApiKey: env.BRAVE_SEARCH_API_KEY });
   const taskQueue = createAgentTaskQueue(connection);
+  const scheduledQueue = createScheduledTaskQueue(connection);
 
   const googleConfigured = env.GOOGLE_CLIENT_ID && env.GOOGLE_CLIENT_SECRET && env.GOOGLE_REDIRECT_URI && env.ENCRYPTION_MASTER_KEY;
-  const resolveDynamicTools = googleConfigured
+  const resolveGoogleTools = googleConfigured
     ? createGoogleToolsResolver({
         oauth: { clientId: env.GOOGLE_CLIENT_ID!, clientSecret: env.GOOGLE_CLIENT_SECRET!, redirectUri: env.GOOGLE_REDIRECT_URI! },
         encryptionMasterKey: env.ENCRYPTION_MASTER_KEY!,
       })
-    : undefined;
+    : async () => [] as ToolDefinition<any, any>[];
   logger.info({ googleConfigured: !!googleConfigured }, googleConfigured ? "Gmail/Calendar tools available per-user" : "Google not configured — Gmail/Calendar tools disabled");
+
+  async function resolveDynamicTools(userId: string): Promise<ToolDefinition<any, any>[]> {
+    const [googleTools, memoryTools] = await Promise.all([resolveGoogleTools(userId), resolveMemoryTools(userId)]);
+    return [...googleTools, ...memoryTools];
+  }
 
   const telegramClient = env.TELEGRAM_BOT_TOKEN ? createTelegramClient(env.TELEGRAM_BOT_TOKEN) : undefined;
   if (telegramClient) {
@@ -61,15 +81,26 @@ async function main() {
     logger.error({ taskId: job?.data.taskId, err }, "agent task run threw");
   });
 
+  const scheduledWorker = createScheduledTaskWorker(connection, {
+    agentTaskQueue: taskQueue,
+    getNotificationConversationId: telegramClient ? getTelegramConversationIdIfConnected : undefined,
+  });
+  scheduledWorker.on("failed", (job, err) => {
+    logger.error({ scheduledTaskId: job?.data.scheduledTaskId, err }, "scheduled job run threw");
+  });
+
+  const reconciledCount = await reconcileScheduledTasks(scheduledQueue);
+  logger.info({ reconciledCount }, "reconciled active scheduled tasks with BullMQ");
+
   logger.info(
     { tools: tools.map((t) => t.name), provider: env.AI_PROVIDER },
-    "jarvis worker listening on agent-tasks",
+    "jarvis worker listening on agent-tasks and scheduled-jobs",
   );
 
   for (const signal of ["SIGINT", "SIGTERM"] as const) {
     process.on(signal, async () => {
       logger.info({ signal }, "shutting down worker");
-      await worker.close();
+      await Promise.all([worker.close(), scheduledWorker.close()]);
       process.exit(0);
     });
   }

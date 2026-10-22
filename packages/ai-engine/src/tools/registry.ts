@@ -2,6 +2,7 @@ import type { ToolSpec } from "../types.js";
 import type { ToolDefinition } from "./types.js";
 import { getCurrentTimeTool } from "./getCurrentTime.js";
 import { createSearchWebTool } from "./searchWeb.js";
+import { searchMemoryTool } from "./searchMemory.js";
 
 export interface ToolRegistryConfig {
   braveSearchApiKey?: string;
@@ -11,10 +12,12 @@ export interface ToolRegistryConfig {
  * Only includes tools that are actually implemented AND configured.
  * search_web is omitted entirely (not just "disabled") when no API key is
  * set, so the model never sees a tool it can't really call —
- * docs/implementation-roadmap.md Phase 3.
+ * docs/implementation-roadmap.md Phase 3. Reading memory never needs
+ * configuration (it's always the same owner's Postgres data), so
+ * search_memory is unconditionally included.
  */
 export function buildToolRegistry(config: ToolRegistryConfig = {}): ToolDefinition<any, any>[] {
-  const tools: ToolDefinition<any, any>[] = [getCurrentTimeTool];
+  const tools: ToolDefinition<any, any>[] = [getCurrentTimeTool, searchMemoryTool];
   if (config.braveSearchApiKey) {
     tools.push(createSearchWebTool(config.braveSearchApiKey));
   }

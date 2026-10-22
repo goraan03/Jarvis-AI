@@ -19,6 +19,8 @@ export { buildToolRegistry, toToolSpecs, findTool } from "./tools/registry.js";
 export type { ToolRegistryConfig } from "./tools/registry.js";
 export { getCurrentTimeTool } from "./tools/getCurrentTime.js";
 export { createSearchWebTool } from "./tools/searchWeb.js";
+export { searchMemoryTool } from "./tools/searchMemory.js";
+export { proposeMemoryTool, resolveMemoryTools } from "./tools/proposeMemory.js";
 export { runAgentTask } from "./agent/engine.js";
 export type { RunAgentTaskDeps } from "./agent/engine.js";
 export { taskLimitsSchema, buildTaskLimits } from "./agent/limits.js";

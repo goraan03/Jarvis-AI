@@ -5,6 +5,8 @@ import ChatPage from "./pages/ChatPage.js";
 import TasksPage from "./pages/TasksPage.js";
 import IntegrationsPage from "./pages/IntegrationsPage.js";
 import ApprovalsPage from "./pages/ApprovalsPage.js";
+import MemoryPage from "./pages/MemoryPage.js";
+import ScheduledTasksPage from "./pages/ScheduledTasksPage.js";
 
 function RequireAuth({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth();
@@ -52,6 +54,22 @@ export default function App() {
             element={
               <RequireAuth>
                 <ApprovalsPage />
+              </RequireAuth>
+            }
+          />
+          <Route
+            path="/memory"
+            element={
+              <RequireAuth>
+                <MemoryPage />
+              </RequireAuth>
+            }
+          />
+          <Route
+            path="/scheduled"
+            element={
+              <RequireAuth>
+                <ScheduledTasksPage />
               </RequireAuth>
             }
           />

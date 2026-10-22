@@ -1,6 +1,6 @@
 export { createTelegramClient } from "./client.js";
 export type { TelegramClient, TelegramUpdate, TelegramMessage, TelegramChat, TelegramUser } from "./types.js";
-export { createLinkCode, consumeLinkCode, findUserByTelegramChatId } from "./linking.js";
+export { createLinkCode, consumeLinkCode, findUserByTelegramChatId, getTelegramConversationIdIfConnected } from "./linking.js";
 export type { LinkCode, LinkResult } from "./linking.js";
 export { processUpdate, shortId } from "./handler.js";
 export type { TelegramHandlerDeps } from "./handler.js";

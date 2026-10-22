@@ -83,6 +83,9 @@ originally documented shape:
 
 - `GET /api/v1/memories?status=approved&q=...` — search (Postgres FTS).
 - `GET /api/v1/memories?status=proposed` — review queue.
+- `POST /api/v1/memories` — `{ category, content }`, owner-authored,
+  created already `APPROVED` (not in the original sketch, added since
+  the review queue alone gives the owner no way to seed memory).
 - `PATCH /api/v1/memories/:id` — edit content/category, or change status
   (approve/reject/archive).
 - `DELETE /api/v1/memories/:id`
@@ -95,8 +98,12 @@ originally documented shape:
   timezone, payload }`
 - `PATCH /api/v1/scheduled-tasks/:id` — edit or pause/resume
   (`{ status }`)
-- `DELETE /api/v1/scheduled-tasks/:id`
+- `DELETE /api/v1/scheduled-tasks/:id` — cancel (terminal; schedules are
+  never hard-deleted, mirroring Task)
 - `GET /api/v1/scheduled-tasks/:id/runs` — execution history
+- `POST /api/v1/scheduled-tasks/:id/trigger` — fire immediately, through
+  the exact same idempotent job processor a real occurrence uses (added
+  for "run now" in the UI)
 
 ## Usage & settings (Phase 2 / 9)
 

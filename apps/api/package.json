@@ -13,6 +13,7 @@
     "@jarvis/ai-engine": "^0.1.0",
     "@jarvis/database": "^0.1.0",
     "@jarvis/integrations": "^0.1.0",
+    "@jarvis/scheduler": "^0.1.0",
     "@jarvis/security": "^0.1.0",
     "@jarvis/shared": "^0.1.0",
     "bullmq": "^6.4.0",

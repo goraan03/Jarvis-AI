@@ -25,6 +25,8 @@ model User {
   telegramLinkCodes TelegramLinkCode[]
   approvalRequests  ApprovalRequest[]
   oauthStates       OAuthState[]
+  memories          Memory[]
+  scheduledTasks    ScheduledTask[]
 }
 
 model Session {
@@ -292,4 +294,77 @@ model ApprovalRequest {
 
   @@index([userId, status])
   @@index([taskId])
+}
+
+// --- Phase 6: memory + scheduler -------------------------------------------
+
+enum MemoryStatus {
+  PROPOSED
+  APPROVED
+  REJECTED
+  ARCHIVED
+}
+
+/** search is done via a generated tsvector column + GIN index added by
+ * raw SQL in this model's migration (Prisma can't express generated
+ * columns) — see docs/database-design.md "Memory". */
+model Memory {
+  id         String       @id @default(cuid())
+  userId     String
+  user       User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  category   String // 'fact' | 'preference' | 'project' | ...
+  content    String
+  source     String // 'conversation' | 'task' | 'manual'
+  confidence Float        @default(1.0)
+  status     MemoryStatus @default(PROPOSED)
+  createdAt  DateTime     @default(now())
+  updatedAt  DateTime     @updatedAt
+
+  // Generated column added by raw SQL (20261022150740_memory_fts).
+  // Unsupported tells Prisma to leave its type/management alone so
+  // `migrate dev` never tries to "fix" drift by dropping it.
+  searchVector Unsupported("tsvector")?
+
+  @@index([userId, status])
+}
+
+/** One-time (runAt) or recurring (cronExpression) task the scheduler
+ * fires by creating a real agent Task — docs/implementation-roadmap.md
+ * Phase 6. bullSchedulerId is the deterministic id used with BullMQ's
+ * upsertJobScheduler/removeJobScheduler so re-registering on worker boot
+ * is idempotent rather than additive. */
+model ScheduledTask {
+  id             String    @id @default(cuid())
+  userId         String
+  user           User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name           String
+  cronExpression String?
+  runAt          DateTime?
+  timezone       String
+  payload        Json
+  status         String // 'active' | 'paused' | 'cancelled'
+  bullSchedulerId String?
+  lastRunAt      DateTime?
+  lastStatus     String?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  runs ScheduledTaskRun[]
+
+  @@index([userId, status])
+}
+
+/** Idempotency ledger for scheduled firings: a unique key per (schedule,
+ * time window) means a redelivered/duplicate trigger within the same
+ * window is a guaranteed no-op — mirrors TelegramUpdate's pattern. */
+model ScheduledTaskRun {
+  id              String        @id @default(cuid())
+  scheduledTaskId String
+  scheduledTask   ScheduledTask @relation(fields: [scheduledTaskId], references: [id], onDelete: Cascade)
+  idempotencyKey  String        @unique
+  taskId          String?
+  status          String // 'created' | 'skipped_concurrency_limit' | 'failed'
+  createdAt       DateTime      @default(now())
+
+  @@index([scheduledTaskId])
 }

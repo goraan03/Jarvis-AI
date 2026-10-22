@@ -66,3 +66,22 @@ export async function findUserByTelegramChatId(chatId: number): Promise<string |
   });
   return integration?.userId ?? null;
 }
+
+/**
+ * Finds (or creates) this user's Telegram conversation, but only if they
+ * actually have a connected Telegram account — used to attach scheduled
+ * tasks to Telegram so their results/failures reuse the existing
+ * notifyTaskResult hook with no new notification code.
+ */
+export async function getTelegramConversationIdIfConnected(userId: string): Promise<string | null> {
+  const integration = await prisma.integration.findUnique({
+    where: { userId_provider: { userId, provider: "telegram" } },
+  });
+  if (integration?.status !== "connected") {
+    return null;
+  }
+  const existing = await prisma.conversation.findFirst({ where: { userId, channel: "TELEGRAM" } });
+  if (existing) return existing.id;
+  const created = await prisma.conversation.create({ data: { userId, channel: "TELEGRAM", title: "Telegram" } });
+  return created.id;
+}
