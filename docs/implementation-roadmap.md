@@ -116,6 +116,12 @@ quotas/metering, billing integration, admin tooling, data export/
 deletion compliance, production monitoring/support processes. Explicitly
 states that the Phase 1–9 product is not production-ready for multiple
 paying customers and enumerates exactly why.
+**Delivered:** `docs/commercial-readiness.md` — grounded in the actual
+Phase 1–9 codebase (file:line citations throughout, not assumptions),
+with a 10-point verdict on why v1 isn't commercial-ready yet, a
+per-topic current-state/what's-needed breakdown for all eight required
+areas, and a row-level-security recommendation (adopt once
+Organizations exist, keyed on `orgId` not `userId`).
 
 ## End-of-phase report format
 Every phase ends with: implemented functionality; files created/modified;

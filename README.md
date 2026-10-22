@@ -10,10 +10,12 @@ the full design. This README only covers running it locally.
 
 ## Status
 
-Phases 1–9 are complete (Phase 7 was finished after Phase 8, out of
-order, by request) — this is the full v1 scope from
-`docs/implementation-roadmap.md`; Phase 10 is a docs-only analysis of
-what multi-tenant/commercial use would require, not something built here.
+All 10 phases are complete (Phase 7 was finished after Phase 8, out of
+order, by request). Phases 1–9 are the actual product — this is the
+full v1 scope from `docs/implementation-roadmap.md`. Phase 10 is a
+docs-only written analysis (`docs/commercial-readiness.md`) of what
+multi-tenant/commercial use would require and exactly why v1 isn't
+ready for it yet — nothing in that phase changes the running product.
 The agent can: use real Gmail/Calendar/Drive data, browse a page, fill
 (and, behind approval, submit) a form, download small files,
 search/recall long-term memory, run on a schedule, and produce research
