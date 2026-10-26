@@ -1,4 +1,4 @@
-import "dotenv/config";
+import "@jarvis/shared/src/loadRootEnv.js";
 import { Redis } from "ioredis";
 import pino from "pino";
 import { loadEnv } from "@jarvis/shared";

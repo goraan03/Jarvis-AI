@@ -1,4 +1,4 @@
-import "dotenv/config";
+import "@jarvis/shared/src/loadRootEnv.js";
 import readline from "node:readline/promises";
 import { stdin, stdout } from "node:process";
 import { prisma } from "@jarvis/database";
