@@ -22,6 +22,20 @@ async function main() {
   let password = process.env.BOOTSTRAP_OWNER_PASSWORD;
 
   if (!email || !password) {
+    // `npm run <script> -w <workspace>` doesn't reliably forward a real
+    // TTY to this process on every npm/shell combination — when it
+    // doesn't, stdin reads as already-closed and rl.question() resolves
+    // to "" instantly instead of waiting, which used to surface as a
+    // confusing generic "required" error with no visible prompt at all.
+    // Fail loud and explain the fix instead.
+    if (!stdin.isTTY) {
+      console.error(
+        "stdin isn't an interactive terminal here, so email/password prompts can't be read.\n" +
+          "Set BOOTSTRAP_OWNER_EMAIL and BOOTSTRAP_OWNER_PASSWORD in .env instead, then re-run " +
+          "this command (remove both lines from .env again afterward).",
+      );
+      process.exit(1);
+    }
     const rl = readline.createInterface({ input: stdin, output: stdout });
     email ??= await promptHidden(rl, "Owner email: ");
     password ??= await promptHidden(rl, "Owner password: ");
